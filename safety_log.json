@@ -1,0 +1,13 @@
+{'timestamp': '2025-11-13T17:49:45.591327', 'reason': 'Слишком много ошибок подряд', 'total_actions': 18, 'session_duration_minutes': 0.10652926365534464, 'consecutive_failures': 13}
+{'timestamp': '2025-11-13T17:49:45.591327', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.0, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:46.607465', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.016935638586680093, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:47.609045', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.03362863858540853, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:48.612788', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.05035768747329712, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:49.614417', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.06705149809519449, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:50.616498', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.08375285863876343, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:51.618580', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.10045422315597534, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:52.620716', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.11715648571650188, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:53.623582', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.13387091557184855, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:54.625663', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.15057227611541749, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:55.628245', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.16728197336196898, 'consecutive_failures': 12}
+{'timestamp': '2025-11-13T17:49:55.628245', 'reason': 'Слишком много ошибок подряд', 'total_actions': 12, 'session_duration_minutes': 0.16728197336196898, 'consecutive_failures': 12}
