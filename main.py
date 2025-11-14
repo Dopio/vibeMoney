@@ -1,18 +1,25 @@
 import time
 import signal
 import sys
+import argparse
 from config.settings import ConfigManager
 from core.scanner import ItemScanner
 from core.controller import CraftController
 from core.safety import SafetyManager
+from core.analyzer import CraftAnalyzer
+from utils.calibrator import Calibrator
+from utils.logger import CraftLogger
 
 
 class PoeCraftBot:
     def __init__(self):
+        self.config = None
         self.config_manager = ConfigManager()
         self.scanner = ItemScanner()
         self.controller = CraftController()
         self.safety = SafetyManager()
+        self.analyzer = CraftAnalyzer()
+        self.logger = CraftLogger()
         self.running = False
 
     def initialize(self):

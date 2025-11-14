@@ -16,7 +16,7 @@ class SafetyManager:
         self.safety_config = {
             'max_failures': 15,  # Максимум ошибок подряд
             'max_session_minutes': 120,  # Максимальная длительность сессии
-            'min_action_interval': 0.2,  # Минимальный интервал между действиями
+            'min_action_interval': 0.3,  # Минимальный интервал между действиями
             'max_actions_per_minute': 180,  # Максимум действий в минуту
             'emergency_cooldown': 60,  # Перерыв после аварийной остановки (сек)
         }
