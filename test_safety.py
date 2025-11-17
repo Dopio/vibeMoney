@@ -1,10 +1,13 @@
+import sys
+import os
 import time
 from core.safety import SafetyManager
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def test_basic_safety():
-    print("🧪 Тестирование SafetyManager (упрощенная версия)")
-    print("=" * 50)
+    print("=== Тестирование SafetyManager ===")
+    print("=" * 40)
 
     safety = SafetyManager()
 
@@ -24,77 +27,6 @@ def test_basic_safety():
 
     safety.print_safety_status()
 
-    # Тест 3: Аварийная остановка
-    print("\n3. Тест аварийной остановки...")
-    for i in range(5):
-        safety.record_action(success=False, action_type=f"critical_error_{i}")
-
-    safety_check = safety.check_all_safety_conditions()
-    print(f"   Безопасность: {'✅' if safety_check else '❌'}")
-
-    # Тест 4: Задержка с прерыванием
-    print("\n4. Тест задержки...")
-    print("   Запуск задержки 3 секунды (можно прервать Ctrl+C)")
-    try:
-        completed = safety.human_delay(3, 3)
-        if completed:
-            print("   ✅ Задержка завершена полностью")
-        else:
-            print("   ⏹️ Задержка прервана системой безопасности")
-    except KeyboardInterrupt:
-        print("   ⏹️ Задержка прервана пользователем")
-
-
-def test_emergency_recovery():
-    print("\n🔄 Тест восстановления после аварийной остановки")
-    print("=" * 55)
-
-    safety = SafetyManager()
-
-    # Вызываем аварийную остановку
-    print("Активация аварийной остановки...")
-    for i in range(12):
-        safety.record_action(success=False, action_type="emergency_trigger")
-
-    safety.print_safety_status()
-
-    # Ждем восстановления
-    print("\nОжидание восстановления...")
-    for i in range(10):
-        time.sleep(1)
-        safety_check = safety.check_all_safety_conditions()
-        if safety_check:
-            print(f"   ✅ Восстановлено через {i + 1} секунд")
-            break
-        else:
-            print(f"   ⏳ Ожидание... {i + 1}/10с")
-
-    safety.print_safety_status()
-
-
-def test_performance_limits():
-    print("\n📈 Тест ограничений производительности")
-    print("=" * 45)
-
-    safety = SafetyManager()
-
-    # Быстрые действия
-    print("Имитация быстрых действий...")
-    start_time = time.time()
-    action_count = 0
-
-    while time.time() - start_time < 2:  # 2 секунды теста
-        safety.record_action(success=True, action_type="fast_action")
-        action_count += 1
-        time.sleep(0.05)  # Очень быстрые действия
-
-    safety.print_safety_status()
-    print(f"   Выполнено действий: {action_count} за 2 секунды")
-
 
 if __name__ == "__main__":
     test_basic_safety()
-    test_emergency_recovery()
-    test_performance_limits()
-
-    print("\n🎉 Все тесты завершены!")

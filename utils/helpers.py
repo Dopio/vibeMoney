@@ -40,3 +40,24 @@ def show_message(message):
     """Показывает сообщение в консоли с временной меткой"""
     timestamp = time.strftime("%H:%M:%S")
     print(f"[{timestamp}] {message}")
+
+def setup_tesseract():
+    """Автоматически настраивает путь к Tesseract"""
+    import pytesseract
+    import os
+
+    # Возможные пути установки
+    possible_paths = [
+        r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+        r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
+        r'C:\Users\{}\AppData\Local\Tesseract-OCR\tesseract.exe'.format(os.getenv('USERNAME')),
+    ]
+
+    for path in possible_paths:
+        if os.path.exists(path):
+            pytesseract.pytesseract.tesseract_cmd = path
+            print(f"✅ Tesseract найден: {path}")
+            return True
+
+    print("❌ Tesseract не найден. Установи с: https://github.com/UB-Mannheim/tesseract/wiki")
+    return False

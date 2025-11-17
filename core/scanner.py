@@ -2,8 +2,11 @@ import cv2
 import pytesseract
 import numpy as np
 from PIL import ImageGrab
+import pytesseract
 import re
 from utils.helpers import show_message
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
 class ItemScanner:
