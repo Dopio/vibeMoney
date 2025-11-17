@@ -10,7 +10,7 @@ class CraftController:
         self.action_count = 0
 
     def use_currency(self, currency_pos, item_pos):
-        """Использует валюту на предмете"""
+        """Использует валюту на предмете с правильными кнопками мыши"""
         try:
             # Проверяем безопасность
             if self.safety and not self.safety.check_all_safety_conditions():
@@ -19,17 +19,16 @@ class CraftController:
 
             show_message(f"🔄 Использование валюты (попытка #{self.action_count + 1})")
 
-            # Случайный порядок действий (как делает человек)
-            if random.random() > 0.7:
-                # Сначала предмет, потом валюту
-                self._click_item(item_pos)
-                human_delay(0.1, 0.3)
-                self._click_currency(currency_pos)
-            else:
-                # Сначала валюту, потом предмет
-                self._click_currency(currency_pos)
-                human_delay(0.1, 0.3)
-                self._click_item(item_pos)
+            # ПРАВИЛЬНАЯ ПОСЛЕДОВАТЕЛЬНОСТЬ:
+            # 1. ПРАВАЯ кнопка по валюте (взять в руку)
+            # 2. ЛЕВАЯ кнопка по предмету (применить)
+
+            # Сначала валюту - ПРАВОЙ кнопкой
+            self._click_currency_right(currency_pos)
+            human_delay(0.2, 0.5)
+
+            # Потом предмет - ЛЕВОЙ кнопкой
+            self._click_item_left(item_pos)
 
             # Случайная пауза после действия
             human_delay(0.5, 2.0)
@@ -52,6 +51,50 @@ class CraftController:
             if self.safety:
                 self.safety.record_action(success=False, action_type="currency_use_error")
             return False
+
+    def _click_currency_right(self, currency_pos):
+        """Клик по валюте ПРАВОЙ кнопкой мыши (взять в руку)"""
+        x, y = currency_pos
+        show_message(f"🖱️ ПРАВЫЙ клик по валюте: ({x}, {y})")
+
+        # Добавляем случайное смещение (5-15 пикселей)
+        variance = random.randint(5, 15)
+        offset_x = random.randint(-variance, variance)
+        offset_y = random.randint(-variance, variance)
+
+        # Случайная скорость движения
+        move_duration = random.uniform(0.1, 0.5)
+
+        # Двигаемся к цели
+        pyautogui.moveTo(x + offset_x, y + offset_y, duration=move_duration)
+
+        # ПРАВЫЙ клик (взять валюту в руку)
+        pyautogui.rightClick()  # Или pyautogui.mouseDown(button='right') + pyautogui.mouseUp(button='right')
+
+        # Случайная микропауза
+        human_delay(0.05, 0.2)
+
+    def _click_item_left(self, item_pos):
+        """Клик по предмету ЛЕВОЙ кнопкой мыши (применить валюту)"""
+        x, y = item_pos
+        show_message(f"🎒 ЛЕВЫЙ клик по предмету: ({x}, {y})")
+
+        # Добавляем случайное смещение (3-10 пикселей)
+        variance = random.randint(3, 10)
+        offset_x = random.randint(-variance, variance)
+        offset_y = random.randint(-variance, variance)
+
+        # Случайная скорость движения
+        move_duration = random.uniform(0.1, 0.5)
+
+        # Двигаемся к цели
+        pyautogui.moveTo(x + offset_x, y + offset_y, duration=move_duration)
+
+        # ЛЕВЫЙ клик (применить валюту на предмет)
+        pyautogui.click()  # Стандартный левый клик
+
+        # Случайная микропауза
+        human_delay(0.05, 0.2)
 
     def _click_currency(self, currency_pos):
         """Клик по валюте с человеческой неточностью"""

@@ -1,0 +1,26 @@
+{
+    "currency_position": [
+        2067,
+        369
+    ],
+    "item_position": [
+        2332,
+        403
+    ],
+    "scan_region": [
+        2138,
+        295,
+        386,
+        51
+    ],
+    "target_mods": [
+        "increased",
+        "damage",
+        "critical",
+        "speed"
+    ],
+    "max_attempts": 200,
+    "min_delay": 0.5,
+    "max_delay": 2.0,
+    "calibration_time": "2025-11-17T23:47:55.339240"
+}

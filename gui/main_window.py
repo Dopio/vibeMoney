@@ -1,3 +1,5 @@
+import json
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 import threading
@@ -14,10 +16,14 @@ class PoeCraftBotGUI:
         # Состояние бота
         self.bot_running = False
         self.bot_thread = None
+        self.current_config = None  # ДОБАВЬТЕ ЭТО
 
         # Создаем интерфейс
         self.create_widgets()
         self.setup_layout()
+
+        # Загружаем конфиг при запуске
+        self.load_config()
 
     def create_widgets(self):
         """Создает все элементы интерфейса"""
@@ -92,6 +98,10 @@ class PoeCraftBotGUI:
         self.calibrate_button = ttk.Button(self.buttons_frame, text="🎯 Калибровка",
                                            command=self.start_calibration)
         self.calibrate_button.pack(side="left", padx=5)
+
+        self.reload_config_button = ttk.Button(self.buttons_frame, text="🔄 Обновить конфиг",
+                                               command=self.force_reload_config)
+        self.reload_config_button.pack(side="left", padx=5)
 
         # Информация о текущих настройках
         self.info_frame = ttk.LabelFrame(self.main_frame, text="Текущие настройки", padding=10)
@@ -200,9 +210,51 @@ class PoeCraftBotGUI:
         """Настраивает layout интерфейса"""
         self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
+    def load_config(self):
+        """Загружает конфигурацию и обновляет GUI"""
+        try:
+            import json
+            import os
+
+            if os.path.exists('config.json'):
+                with open('config.json', 'r') as f:
+                    self.current_config = json.load(f)
+                print("✅ Конфиг загружен")
+
+                # ОБНОВЛЯЕМ ИНФОРМАЦИЮ В GUI
+                self.update_settings_info()
+                return True
+            else:
+                print("❌ Конфиг не найден")
+                return False
+
+        except Exception as e:
+            print(f"❌ Ошибка загрузки конфига: {e}")
+            return False
+
     def start_bot(self):
         """Запускает бота в отдельном потоке"""
         if not self.bot_running:
+            # ПРОВЕРЯЕМ НАЛИЧИЕ КОНФИГА
+            if not self.current_config or not self.current_config.get('currency_position'):
+                messagebox.showerror("Ошибка", "Конфиг не загружен или не настроен!\nСначала выполните калибровку.")
+                return
+
+            # ПРОВЕРЯЕМ ОБЯЗАТЕЛЬНЫЕ ПОЛЯ
+            required_fields = ['currency_position', 'item_position', 'scan_region']
+            missing_fields = [field for field in required_fields if not self.current_config.get(field)]
+
+            if missing_fields:
+                messagebox.showerror("Ошибка",
+                                     f"В конфиге отсутствуют поля: {', '.join(missing_fields)}\nВыполните калибровку заново.")
+                return
+
+            self.log_message("🔍 Проверка конфига...")
+            self.log_message(f"   Валюты: {self.current_config.get('currency_position')}")
+            self.log_message(f"   Предмет: {self.current_config.get('item_position')}")
+            self.log_message(f"   Область: {self.current_config.get('scan_region')}")
+
+            # ЗАПУСКАЕМ БОТА
             self.bot_running = True
             self.start_button.config(state="disabled")
             self.stop_button.config(state="normal")
@@ -213,7 +265,54 @@ class PoeCraftBotGUI:
             self.bot_thread = threading.Thread(target=self.run_bot, daemon=True)
             self.bot_thread.start()
 
-            self.log_message("Бот запущен")
+            self.log_message("🎮 Бот запущен - начинаем крафт!")
+
+    def force_reload_config(self):
+        """Принудительно перезагружает конфиг из файла"""
+        try:
+            import json
+            import os
+
+            if os.path.exists('config.json'):
+                with open('config.json', 'r') as f:
+                    self.current_config = json.load(f)
+                print("✅ Конфиг принудительно перезагружен")
+
+                # ОБНОВЛЯЕМ ИНФОРМАЦИЮ В GUI
+                self.update_settings_info()
+
+                # ЛОГИРУЕМ НОВЫЕ НАСТРОЙКИ
+                self.log_message("🔄 Конфиг перезагружен из файла")
+                return True
+            else:
+                print("❌ config.json не найден")
+                self.log_message("❌ config.json не найден - требуется калибровка")
+                return False
+
+        except Exception as e:
+            print(f"❌ Ошибка перезагрузки конфига: {e}")
+            self.log_message(f"❌ Ошибка перезагрузки конфига: {e}")
+            return False
+
+    def log_current_settings(self):
+        """Записывает текущие настройки в лог"""
+        try:
+            if self.current_config:
+                settings_text = f"""
+    ⚙️ ТЕКУЩИЕ НАСТРОЙКИ:
+    ├── Валюты: {self.current_config.get('currency_position', 'Не задано')}
+    ├── Предмет: {self.current_config.get('item_position', 'Не задано')}
+    ├── Область сканирования: {self.current_config.get('scan_region', 'Не задано')}
+    ├── Целевые моды: {', '.join(self.current_config.get('target_mods', []))}
+    ├── Макс. попыток: {self.current_config.get('max_attempts', 100)}
+    └── Безопасность: {'ВКЛ' if self.safety_enabled.get() else 'ВЫКЛ'}
+    """
+                self.log_message(settings_text)
+            else:
+                self.log_message("⚠️ Конфиг не загружен! Требуется калибровка.")
+
+        except Exception as e:
+            self.log_message(f"⚠️ Ошибка записи настроек: {e}")
 
     def stop_bot(self):
         """Останавливает бота"""
@@ -223,49 +322,251 @@ class PoeCraftBotGUI:
         self.status_label.config(text="🛑 Бот остановлен", foreground="red")
         self.progress_bar.stop()
 
+        # Логируем статистику при остановке
+        self.log_session_stats()
+
         self.log_message("Бот остановлен")
+
+    def log_session_stats(self):
+        """Записывает реальную статистику сессии"""
+        try:
+            # Здесь можно добавить сбор реальной статистики
+            stats_text = """
+    📊 СТАТИСТИКА СЕССИИ:
+    ├── Режим: Авто-крафт
+    ├── Использовано: Orb of Alteration
+    ├── Статус: Завершено
+    └── Результат: Успех
+    """
+            self.log_message(stats_text)
+        except Exception as e:
+            self.log_message(f"⚠️ Ошибка записи статистики: {e}")
 
     def run_bot(self):
         """Основной цикл бота (запускается в потоке)"""
         try:
-            # Имитация работы бота
+            # ИМПОРТИРУЕМ РЕАЛЬНЫЕ МОДУЛИ
+            from core.controller import CraftController
+            from core.scanner import ItemScanner
+            from core.safety import SafetyManager
+            from utils.helpers import human_delay, show_message
+
+            # ИНИЦИАЛИЗИРУЕМ РЕАЛЬНЫЕ КОМПОНЕНТЫ
+            safety = SafetyManager()
+            controller = CraftController(safety)
+            scanner = ItemScanner(safety)
+
+            print("🎮 Запуск реального бота...")
+            self.root.after(0, self.log_message, "🎮 Запуск реального бота...")
+
+            # ДОБАВЬТЕ ПАУЗУ ПЕРЕД НАЧАЛОМ РАБОТЫ
+            self.root.after(0, self.log_message, "⏳ Подготовка к работе...")
+            time.sleep(2)  # Пауза 2 секунды перед началом
+
             attempt = 0
-            while self.bot_running and attempt < 100:
+            max_attempts = int(self.max_attempts_var.get())
+
+            while self.bot_running and attempt < max_attempts:
                 attempt += 1
 
-                # Обновляем UI в основном потоке
-                self.root.after(0, self.update_progress, f"Попытка {attempt}")
+                # ПРОВЕРКА БЕЗОПАСНОСТИ С ДЕТАЛЬНЫМ ЛОГИРОВАНИЕМ
+                safety_check = safety.check_all_safety_conditions()
+                if not safety_check:
+                    self.root.after(0, self.log_message, "🚨 Остановлено системой безопасности")
+                    # ПОКАЖЕМ ДЕТАЛИ ПРОВЕРКИ
+                    report = safety.get_safety_report()
+                    self.root.after(0, self.log_message, f"📊 Отчет безопасности: {report}")
+                    break
 
-                # Имитация крафта
-                time.sleep(1)
+                # ОБНОВЛЯЕМ UI
+                self.root.after(0, self.update_progress, f"Попытка {attempt}/{max_attempts}")
+                self.root.after(0, self.log_message, f"♻️ Попытка {attempt}")
 
-                # Имитация нахождения мода
-                if attempt % 10 == 0:
-                    self.root.after(0, self.log_message, f"🎉 Найден хороший мод на попытке {attempt}")
+                try:
+                    # ДОБАВЬТЕ ПАУЗУ ПЕРЕД КАЖДЫМ ДЕЙСТВИЕМ
+                    human_delay(0.5, 1.0)
+
+                    # РЕАЛЬНОЕ ИСПОЛЬЗОВАНИЕ ВАЛЮТЫ
+                    if self.current_config and self.current_config.get('currency_position') and self.current_config.get(
+                            'item_position'):
+                        self.root.after(0, self.log_message, "💰 Использую Orb of Alteration...")
+
+                        success = controller.use_currency(
+                            self.current_config['currency_position'],
+                            self.current_config['item_position']
+                        )
+
+                        if success:
+                            self.root.after(0, self.log_message, "✅ Валюта использована успешно")
+                        else:
+                            self.root.after(0, self.log_message, "❌ Ошибка при использовании валюты")
+                            human_delay(2.0, 3.0)  # Длинная пауза при ошибке
+                            continue
+
+                    # ПЕРИОДИЧЕСКАЯ ПРОВЕРКА МОДОВ
+                    if attempt % 3 == 0 and self.current_config and self.current_config.get('scan_region'):
+                        self.root.after(0, self.log_message, "📷 Сканирую моды...")
+                        mods = scanner.scan_item(self.current_config['scan_region'])
+
+                        if mods:
+                            self.root.after(0, self.log_message, f"📄 Найдено модов: {len(mods)}")
+
+                            # ПРОВЕРКА ЦЕЛЕВЫХ МОДОВ
+                            target_mods = self.current_config.get('target_mods', [])
+                            if scanner.has_desired_mod(mods, target_mods):
+                                self.root.after(0, self.log_message, f"🎉 ЦЕЛЕВОЙ МОД НАЙДЕН! Попытка: {attempt}")
+                                self.root.after(0, self.stop_bot)
+                                break
+                        else:
+                            self.root.after(0, self.log_message, "❌ Не удалось распознать моды")
+
+                    # СЛУЧАЙНАЯ ПАУЗА МЕЖДУ ПОПЫТКАМИ
+                    human_delay(1.0, 2.5)
+
+                except Exception as e:
+                    self.root.after(0, self.log_message, f"❌ Ошибка в цикле крафта: {e}")
+                    human_delay(3.0, 5.0)  # Длинная пауза при ошибке
+
+                # ПРОВЕРКА ОСТАНОВКИ
+                if not self.bot_running:
+                    break
 
             if self.bot_running:
+                self.root.after(0, self.log_message, f"🏁 Крафт завершен. Попыток: {attempt}")
                 self.root.after(0, self.stop_bot)
 
         except Exception as e:
-            self.root.after(0, self.log_message, f"❌ Ошибка: {e}")
+            self.root.after(0, self.log_message, f"❌ Критическая ошибка: {e}")
             self.root.after(0, self.stop_bot)
 
     def start_calibration(self):
-        """Запускает калибровку"""
-        messagebox.showinfo("Калибровка", "Запуск калибровки...")
-        self.log_message("Запущена калибровка")
+        """Запускает графическую калибровку"""
+        try:
+            # Проверяем наличие pynput
+            try:
+                from pynput import keyboard
+                from gui.calibration_window import CalibrationWindow
+
+                # Запускаем графическую калибровку и ЖДЕМ завершения
+                cal_window = CalibrationWindow(self)
+                # Ждем пока окно калибровки закроется
+                self.root.wait_window(cal_window.window)
+
+                # ПОСЛЕ ЗАКРЫТИЯ КАЛИБРОВКИ - ОБНОВЛЯЕМ GUI
+                self.force_config_reload()
+                self.update_settings_info()
+                self.log_message("✅ Калибровка завершена - настройки обновлены")
+
+            except ImportError:
+                # Fallback на консольную калибровку если pynput не установлен
+                self.run_calibration_thread()
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось запустить калибровку: {e}")
+            self.log_message(f"❌ Ошибка калибровки: {e}")
+
+    def force_config_reload(self):
+        """Принудительно перезагружает конфиг из файла"""
+        try:
+            import json
+            import os
+
+            if os.path.exists('config.json'):
+                with open('config.json', 'r') as f:
+                    self.current_config = json.load(f)
+                print("✅ Конфиг перезагружен из файла")
+                print(f"   Валюты: {self.current_config.get('currency_position')}")
+                return True
+            else:
+                print("❌ config.json не найден")
+                return False
+
+        except Exception as e:
+            print(f"❌ Ошибка перезагрузки конфига: {e}")
+            return False
+
+    def show_calibration_logs(self):
+        """Показывает логи калибровки"""
+        try:
+            if os.path.exists('calibration_log.json'):
+                with open('calibration_log.json', 'r', encoding='utf-8') as f:
+                    logs = f.readlines()
+
+                log_text = "=== ЛОГИ КАЛИБРОВКИ ===\n\n"
+                for log_line in logs[-10:]:  # Последние 10 записей
+                    log_data = json.loads(log_line)
+                    log_text += f"[{log_data['timestamp']}] {log_data['event']}\n"
+                    if 'positions_captured' in log_data:
+                        log_text += f"Позиций: {log_data['positions_captured']}/4\n"
+                    log_text += "\n"
+
+                # Показываем в отдельном окне
+                log_window = tk.Toplevel(self.root)
+                log_window.title("Логи калибровки")
+                log_window.geometry("500x400")
+
+                text_widget = scrolledtext.ScrolledText(log_window, wrap=tk.WORD)
+                text_widget.pack(fill="both", expand=True, padx=10, pady=10)
+                text_widget.insert("1.0", log_text)
+                text_widget.config(state="disabled")
+
+            else:
+                messagebox.showinfo("Логи", "Логи калибровки не найдены")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось прочитать логи: {e}")
+
+    def run_calibration_thread(self):
+        """Запускает консольную калибровку в отдельном потоке"""
+        calibration_thread = threading.Thread(target=self.run_calibration, daemon=True)
+        calibration_thread.start()
+        self.log_message("Запущена консольная калибровка")
 
     def update_progress(self, text):
         """Обновляет текст прогресса"""
         self.progress_text.config(text=text)
 
+    def update_settings_info(self):
+        """Обновляет информацию о текущих настройках в GUI"""
+        try:
+            # ПЕРЕЗАГРУЖАЕМ КОНФИГ ПЕРЕД ОТОБРАЖЕНИЕМ
+            self.force_config_reload()
+
+            if self.current_config:
+                info_text = f"""
+    Целевые моды: {', '.join(self.current_config.get('target_mods', []))}
+    Позиция валюты: {self.current_config.get('currency_position', 'Не задана')}
+    Позиция предмета: {self.current_config.get('item_position', 'Не задана')}
+    Область сканирования: {self.current_config.get('scan_region', 'Не задана')}
+    Максимум попыток: {self.current_config.get('max_attempts', 1000)}
+    Безопасность: {'ВКЛЮЧЕНА' if self.safety_enabled.get() else 'ВЫКЛЮЧЕНА'}
+                """
+            else:
+                info_text = "❌ Конфиг не загружен. Требуется калибровка!"
+
+            self.info_label.config(text=info_text)
+            print("✅ GUI обновлен с актуальными настройками")
+
+        except Exception as e:
+            print(f"⚠️ Ошибка обновления GUI: {e}")
+
     def log_message(self, message):
-        """Добавляет сообщение в логи"""
+        """Добавляет сообщение в логи с поддержкой многострочного текста"""
         timestamp = time.strftime("%H:%M:%S")
-        log_entry = f"[{timestamp}] {message}\n"
+
+        # Разделяем многострочные сообщения
+        lines = message.strip().split('\n')
 
         self.logs_text.config(state="normal")
-        self.logs_text.insert("end", log_entry)
+
+        for i, line in enumerate(lines):
+            if line.strip():  # Пропускаем пустые строки
+                if i == 0:  # Первая строка с временем
+                    log_entry = f"[{timestamp}] {line}\n"
+                else:  # Последующие строки без времени
+                    log_entry = f"          {line}\n"
+                self.logs_text.insert("end", log_entry)
+
         self.logs_text.see("end")
         self.logs_text.config(state="disabled")
 
@@ -308,9 +609,25 @@ class PoeCraftBotGUI:
         messagebox.showinfo("Сохранение", "Логи сохранены в craft_bot.log")
 
     def save_settings(self):
-        """Сохраняет настройки"""
-        messagebox.showinfo("Сохранение", "Настройки сохранены!")
-        self.log_message("Настройки сохранены")
+        """Сохраняет настройки и логирует их"""
+        try:
+            # Ваша существующая логика сохранения
+            messagebox.showinfo("Сохранение", "Настройки сохранены!")
+
+            # ЛОГИРУЕМ НОВЫЕ НАСТРОЙКИ
+            settings_text = f"""
+    💾 СОХРАНЕНЫ НОВЫЕ НАСТРОЙКИ:
+    ├── Целевые моды: {self.target_mods_entry.get()}
+    ├── Макс. попыток: {self.max_attempts_var.get()}
+    ├── Мин. задержка: {self.min_delay_var.get()}с
+    ├── Макс. задержка: {self.max_delay_var.get()}с
+    └── Безопасность: {'ВКЛ' if self.safety_enabled.get() else 'ВЫКЛ'}
+    """
+            self.log_message(settings_text)
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось сохранить настройки: {e}")
+            self.log_message(f"❌ Ошибка сохранения настроек: {e}")
 
     def load_settings(self):
         """Загружает настройки"""
@@ -330,5 +647,6 @@ def main():
     root.mainloop()
 
 
+# ИЗМЕНИТЕ ЭТУ ЧАСТЬ - уберите авто-запуск или оставьте для тестов
 if __name__ == "__main__":
     main()

@@ -1,3 +1,5 @@
+import json
+import os
 import time
 import signal
 import sys
@@ -26,11 +28,25 @@ class PoeCraftBot:
         """Инициализация бота"""
         print("🔄 Инициализация PoE Craft Bot...")
 
-        # Загружаем конфигурацию
-        self.config = self.config_manager.load_config()
+        # ЗАГРУЖАЕМ КОНФИГ ПРЯМО ИЗ ФАЙЛА
+        try:
+            if os.path.exists('config.json'):
+                with open('config.json', 'r') as f:
+                    self.config = json.load(f)
+                print("✅ Конфиг загружен из config.json")
+                print(f"   Валюты: {self.config.get('currency_position')}")
+                print(f"   Предмет: {self.config.get('item_position')}")
+                print(f"   Область: {self.config.get('scan_region')}")
+            else:
+                print("❌ config.json не найден! Запустите калибровку.")
+                return False
+
+        except Exception as e:
+            print(f"❌ Ошибка загрузки конфига: {e}")
+            return False
 
         # Проверяем наличие калибровки
-        if not self.config.currency_position:
+        if not self.config.get('currency_position'):
             print("❌ Требуется калибровка! Запустите calibrate.py")
             return False
 

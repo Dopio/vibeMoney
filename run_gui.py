@@ -5,19 +5,32 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from gui.main_window import main
+    from gui.main_window import PoeCraftBotGUI
+    import tkinter as tk
 
     print("🚀 Запуск PoE Craft Bot GUI...")
-    main()
+
+    # Создаем главное окно и приложение
+    root = tk.Tk()
+    app = PoeCraftBotGUI(root)
+    root.mainloop()
+
 except ImportError as e:
     print(f"❌ Ошибка импорта: {e}")
-    print("📦 Устанавливаем зависимости...")
+    print("🔍 Детали ошибки:")
 
-    # Авто-установка tkinter если нужно
+    # Диагностика
+    try:
+        from gui import main_window
+
+        print("✅ main_window модуль найден")
+    except ImportError as e2:
+        print(f"❌ Не удалось импортировать main_window: {e2}")
+
     try:
         import tkinter
 
-        print("✅ Tkinter установлен")
+        print("✅ Tkinter доступен")
     except ImportError:
         print("❌ Tkinter не установлен. Установите: sudo apt-get install python3-tk (Linux)")
 

@@ -7,25 +7,44 @@ from datetime import datetime
 class SafetyManager:
     def __init__(self):
         self.start_time = time.time()
-        self.last_action_time = time.time()
+        self.last_action_time = time.time()  # Инициализируем текущим временем
         self.consecutive_failures = 0
         self.total_actions = 0
         self.emergency_stop = False
 
-        # Настройки безопасности
+        # ОСЛАБЬТЕ НАСТРОЙКИ ДЛЯ ТЕСТИРОВАНИЯ
         self.safety_config = {
-            'max_failures': 15,  # Максимум ошибок подряд
-            'max_session_minutes': 120,  # Максимальная длительность сессии
-            'min_action_interval': 0.3,  # Минимальный интервал между действиями
-            'max_actions_per_minute': 180,  # Максимум действий в минуту
-            'emergency_cooldown': 60,  # Перерыв после аварийной остановки (сек)
+            'max_failures': 50,  # Увеличим лимит ошибок
+            'max_session_minutes': 180,  # Увеличим время сессии
+            'min_action_interval': 0.1,  # УМЕНЬШИМ минимальный интервал
+            'max_actions_per_minute': 300,  # Увеличим лимит действий
+            'emergency_cooldown': 30,  # Уменьшим коулдаун
         }
 
         # Статистика
         self.actions_log = []
         self.failure_log = []
 
-        print("✅ SafetyManager инициализирован (упрощенная версия)")
+        print("✅ SafetyManager инициализирован (тестовый режим)")
+
+    def debug_safety_checks(self):
+        """Выводит отладочную информацию о проверках безопасности"""
+        print("🔍 ОТЛАДКА БЕЗОПАСНОСТИ:")
+        print(f"   Время старта: {time.time() - self.start_time:.2f}с назад")
+        print(f"   Последнее действие: {time.time() - self.last_action_time:.2f}с назад")
+        print(f"   Всего действий: {self.total_actions}")
+        print(f"   Ошибок подряд: {self.consecutive_failures}")
+
+        # Проверяем все условия
+        checks = [
+            self.check_emergency_stop(),
+            self.check_consecutive_failures(),
+            self.check_session_duration(),
+            self.check_action_frequency(),
+        ]
+
+        for check_name, passed, message in checks:
+            print(f"   {check_name}: {'✅' if passed else '❌'} {message}")
 
     def check_all_safety_conditions(self):
         """Проверяет все условия безопасности"""
