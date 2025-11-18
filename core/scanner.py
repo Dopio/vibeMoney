@@ -1,33 +1,45 @@
-import cv2
-import pytesseract
-import numpy as np
-from PIL import ImageGrab
-import pytesseract
+import mss
 import re
+from PIL import Image
+import cv2
+import numpy as np
+import pytesseract
 from utils.helpers import show_message
-
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
 class ItemScanner:
     def __init__(self, safety_manager=None):
         self.safety = safety_manager
         self.scan_count = 0
+        self.sct = mss.mss()
+        self.right_monitor = self._find_right_monitor()
 
         # Настройки OCR
         self.ocr_config = (r'--oem 3 --psm 6 -c '
                            r'tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-+%')
 
         # Целевые моды для поиска
-        self.common_prefixes = ["increased", "added", "additional", "enhanced", "supported", "faster"]
-        self.common_suffixes = ["damage", "speed", "critical", "resistance", "life", "mana", "armour", "evasion"]
+        self.common_prefixes = ["increased", "added", "additional", "enhanced", "supported", "faster", "to"]
+        self.common_suffixes = ["damage", "speed", "critical", "resistance", "life", "mana", "armour", "evasion",
+                                "accuracy", "rating"]
 
-        # Кэш для избежания повторного сканирования одного состояния
+        # Кэш
         self.last_scan_hash = None
         self.last_scan_result = None
 
+    def _find_right_monitor(self):
+        """Находит самый правый монитор"""
+        monitors = self.sct.monitors
+        if len(monitors) <= 1:
+            return monitors[0]
+
+        # Находим монитор с наибольшим значением left (самый правый)
+        rightmost = max(monitors[1:], key=lambda m: m['left'])
+        print(f"🎯 Выбран правый монитор: left={rightmost['left']}, size={rightmost['width']}x{rightmost['height']}")
+        return rightmost
+
     def scan_item(self, scan_region):
-        """Сканирует моды предмета в указанной области"""
+        """Сканирует моды предмета на правом мониторе"""
         try:
             # Проверяем безопасность
             if self.safety and not self.safety.check_all_safety_conditions():
@@ -35,8 +47,8 @@ class ItemScanner:
 
             show_message("📷 Сканирование предмета...")
 
-            # Захватываем screenshot
-            screenshot = self._capture_region(scan_region)
+            # Захватываем screenshot на правом мониторе
+            screenshot = self._capture_region_mss(scan_region)
             if screenshot is None:
                 return []
 
@@ -74,14 +86,30 @@ class ItemScanner:
                 self.safety.record_action(success=False, action_type="scan_error")
             return []
 
-    def _capture_region(self, region):
-        """Захватывает область экрана"""
+    def _capture_region_mss(self, region):
+        """Захватывает область используя mss (работает с правым монитором)"""
         try:
             x, y, w, h = region
-            screenshot = ImageGrab.grab(bbox=(x, y, x + w, y + h))
-            return screenshot
+
+            # Захватываем область
+            monitor_region = {
+                'left': x,
+                'top': y,
+                'width': w,
+                'height': h
+            }
+
+            screenshot = self.sct.grab(monitor_region)
+            img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+
+            # Сохраняем для отладки (можно убрать в продакшене)
+            img.save('scanner_capture.png')
+            print("✅ Скриншот сохранен: scanner_capture.png")
+
+            return img
+
         except Exception as e:
-            show_message(f"❌ Ошибка захвата экрана: {e}")
+            print(f"❌ Ошибка захвата mss: {e}")
             return None
 
     def _preprocess_image(self, image):
@@ -115,17 +143,31 @@ class ItemScanner:
             return ""
 
     def _parse_mods(self, text):
-        """Парсит текст и извлекает моды"""
+        """Парсит текст и извлекает моды - УЛУЧШЕННАЯ ВЕРСИЯ"""
         mods = []
+
+        if not text:
+            print("❌ Текст для парсинга пустой")
+            return mods
+
+        print(f"📝 Исходный текст для парсинга: '{text}'")
+
         lines = text.split('\n')
 
         for line in lines:
             line_clean = line.strip()
-            if len(line_clean) > 3:  # Игнорируем слишком короткие строки
-                # Проверяем, похожа ли строка на мод PoE
-                if self._is_likely_mod(line_clean):
-                    mods.append(line_clean)
+            if len(line_clean) > 2:  # Уменьшаем минимальную длину
+                # УЛУЧШЕННАЯ ПРОВЕРКА: ищем любые комбинации с цифрами
+                has_numbers = any(char.isdigit() for char in line_clean)
+                has_letters = any(char.isalpha() for char in line_clean)
 
+                if has_numbers and has_letters:
+                    # Очищаем мод от лишних пробелов
+                    clean_mod = ' '.join(line_clean.split())
+                    mods.append(clean_mod)
+                    print(f"✅ Добавлен мод: '{clean_mod}'")
+
+        print(f"📄 Всего распознано модов: {len(mods)}")
         return mods
 
     def _is_likely_mod(self, text):
@@ -158,7 +200,7 @@ class ItemScanner:
         """Создает простой хэш изображения для кэширования"""
         try:
             # Конвертируем в grayscale и ресайзим для быстрого хэширования
-            small = image.resize((8, 8), image.Resampling.LANCZOS)
+            small = image.resize((8, 8), Image.Resampling.LANCZOS)
             grayscale = small.convert('L')
 
             # Вычисляем среднюю яркость

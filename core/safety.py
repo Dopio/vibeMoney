@@ -70,26 +70,26 @@ class SafetyManager:
             if cooldown_passed:
                 self.emergency_stop = False
                 self.consecutive_failures = 0
-                return ("Emergency Stop", True, "Коулдаун завершен")
+                return "Emergency Stop", True, "Коулдаун завершен"
             else:
                 remaining = self.safety_config['emergency_cooldown'] - (time.time() - self.last_action_time)
-                return ("Emergency Stop", False, f"Аварийная остановка ({remaining:.0f}с осталось)")
-        return ("Emergency Stop", True, "OK")
+                return "Emergency Stop", False, f"Аварийная остановка ({remaining:.0f}с осталось)"
+        return "Emergency Stop", True, "OK"
 
     def check_consecutive_failures(self):
         """Проверка количества последовательных ошибок"""
         if self.consecutive_failures >= self.safety_config['max_failures']:
             self.trigger_emergency_stop("Слишком много ошибок подряд")
-            return ("Consecutive Failures", False, f"Слишком много ошибок: {self.consecutive_failures}")
-        return ("Consecutive Failures", True, f"OK ({self.consecutive_failures}/{self.safety_config['max_failures']})")
+            return "Consecutive Failures", False, f"Слишком много ошибок: {self.consecutive_failures}"
+        return "Consecutive Failures", True, f"OK ({self.consecutive_failures}/{self.safety_config['max_failures']})"
 
     def check_session_duration(self):
         """Проверка длительности сессии"""
         session_duration = (time.time() - self.start_time) / 60  # в минутах
         if session_duration > self.safety_config['max_session_minutes']:
-            return ("Session Duration", False, f"Сессия слишком долгая: {session_duration:.1f} мин")
+            return "Session Duration", False, f"Сессия слишком долгая: {session_duration:.1f} мин"
         return (
-        "Session Duration", True, f"OK ({session_duration:.1f}/{self.safety_config['max_session_minutes']} мин)")
+            "Session Duration", True, f"OK ({session_duration:.1f}/{self.safety_config['max_session_minutes']} мин)")
 
     def check_action_frequency(self):
         """Проверка частоты действий"""
@@ -98,14 +98,14 @@ class SafetyManager:
         # Проверка минимального интервала
         time_since_last_action = current_time - self.last_action_time
         if time_since_last_action < self.safety_config['min_action_interval']:
-            return ("Action Frequency", False, f"Слишком частые действия: {time_since_last_action:.2f}с")
+            return "Action Frequency", False, f"Слишком частые действия: {time_since_last_action:.2f}с"
 
         # Проверка действий в минуту
         recent_actions = [t for t in self.actions_log if t > current_time - 60]
         if len(recent_actions) > self.safety_config['max_actions_per_minute']:
-            return ("Actions Per Minute", False, f"Слишком много действий: {len(recent_actions)}/мин")
+            return "Actions Per Minute", False, f"Слишком много действий: {len(recent_actions)}/мин"
 
-        return ("Action Frequency", True, "OK")
+        return "Action Frequency", True, "OK"
 
     def record_action(self, success=True, action_type="unknown"):
         """Записывает действие в лог"""

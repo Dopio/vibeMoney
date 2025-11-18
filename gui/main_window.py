@@ -99,10 +99,6 @@ class PoeCraftBotGUI:
                                            command=self.start_calibration)
         self.calibrate_button.pack(side="left", padx=5)
 
-        self.reload_config_button = ttk.Button(self.buttons_frame, text="🔄 Обновить конфиг",
-                                               command=self.force_reload_config)
-        self.reload_config_button.pack(side="left", padx=5)
-
         # Информация о текущих настройках
         self.info_frame = ttk.LabelFrame(self.main_frame, text="Текущие настройки", padding=10)
         self.info_frame.pack(fill="x", padx=10, pady=5)
@@ -221,8 +217,9 @@ class PoeCraftBotGUI:
                     self.current_config = json.load(f)
                 print("✅ Конфиг загружен")
 
-                # ОБНОВЛЯЕМ ИНФОРМАЦИЮ В GUI
-                self.update_settings_info()
+                # ОБНОВЛЯЕМ ПОЛЯ В GUI
+                self.update_gui_from_config()
+
                 return True
             else:
                 print("❌ Конфиг не найден")
@@ -231,6 +228,31 @@ class PoeCraftBotGUI:
         except Exception as e:
             print(f"❌ Ошибка загрузки конфига: {e}")
             return False
+
+    def update_gui_from_config(self):
+        """Обновляет поля GUI из загруженного конфига"""
+        try:
+            if self.current_config:
+                # Целевые моды
+                target_mods = self.current_config.get('target_mods', [])
+                if target_mods:
+                    self.target_mods_entry.delete(0, tk.END)
+                    self.target_mods_entry.insert(0, ', '.join(target_mods))
+
+                # Максимум попыток
+                max_attempts = self.current_config.get('max_attempts', 1000)
+                self.max_attempts_var.set(str(max_attempts))
+
+                # Задержки
+                min_delay = self.current_config.get('min_delay', 0.5)
+                max_delay = self.current_config.get('max_delay', 2.0)
+                self.min_delay_var.set(str(min_delay))
+                self.max_delay_var.set(str(max_delay))
+
+                print("✅ GUI обновлен из конфига")
+
+        except Exception as e:
+            print(f"⚠️ Ошибка обновления GUI: {e}")
 
     def start_bot(self):
         """Запускает бота в отдельном потоке"""
@@ -343,15 +365,13 @@ class PoeCraftBotGUI:
             self.log_message(f"⚠️ Ошибка записи статистики: {e}")
 
     def run_bot(self):
-        """Основной цикл бота (запускается в потоке)"""
+        """Основной цикл бота"""
         try:
-            # ИМПОРТИРУЕМ РЕАЛЬНЫЕ МОДУЛИ
             from core.controller import CraftController
             from core.scanner import ItemScanner
             from core.safety import SafetyManager
-            from utils.helpers import human_delay, show_message
+            from utils.helpers import human_delay
 
-            # ИНИЦИАЛИЗИРУЕМ РЕАЛЬНЫЕ КОМПОНЕНТЫ
             safety = SafetyManager()
             controller = CraftController(safety)
             scanner = ItemScanner(safety)
@@ -359,36 +379,28 @@ class PoeCraftBotGUI:
             print("🎮 Запуск реального бота...")
             self.root.after(0, self.log_message, "🎮 Запуск реального бота...")
 
-            # ДОБАВЬТЕ ПАУЗУ ПЕРЕД НАЧАЛОМ РАБОТЫ
-            self.root.after(0, self.log_message, "⏳ Подготовка к работе...")
-            time.sleep(2)  # Пауза 2 секунды перед началом
+            # ПАУЗА ПЕРЕД НАЧАЛОМ
+            time.sleep(2)
 
             attempt = 0
-            max_attempts = int(self.max_attempts_var.get())
+            max_attempts = 50
 
             while self.bot_running and attempt < max_attempts:
                 attempt += 1
 
-                # ПРОВЕРКА БЕЗОПАСНОСТИ С ДЕТАЛЬНЫМ ЛОГИРОВАНИЕМ
-                safety_check = safety.check_all_safety_conditions()
-                if not safety_check:
+                if not safety.check_all_safety_conditions():
                     self.root.after(0, self.log_message, "🚨 Остановлено системой безопасности")
-                    # ПОКАЖЕМ ДЕТАЛИ ПРОВЕРКИ
-                    report = safety.get_safety_report()
-                    self.root.after(0, self.log_message, f"📊 Отчет безопасности: {report}")
                     break
 
-                # ОБНОВЛЯЕМ UI
                 self.root.after(0, self.update_progress, f"Попытка {attempt}/{max_attempts}")
                 self.root.after(0, self.log_message, f"♻️ Попытка {attempt}")
 
                 try:
-                    # ДОБАВЬТЕ ПАУЗУ ПЕРЕД КАЖДЫМ ДЕЙСТВИЕМ
+                    # ПАУЗА ПЕРЕД ДЕЙСТВИЕМ
                     human_delay(0.5, 1.0)
 
-                    # РЕАЛЬНОЕ ИСПОЛЬЗОВАНИЕ ВАЛЮТЫ
-                    if self.current_config and self.current_config.get('currency_position') and self.current_config.get(
-                            'item_position'):
+                    # ИСПОЛЬЗОВАНИЕ ВАЛЮТЫ
+                    if self.current_config:
                         self.root.after(0, self.log_message, "💰 Использую Orb of Alteration...")
 
                         success = controller.use_currency(
@@ -396,43 +408,47 @@ class PoeCraftBotGUI:
                             self.current_config['item_position']
                         )
 
-                        if success:
-                            self.root.after(0, self.log_message, "✅ Валюта использована успешно")
-                        else:
-                            self.root.after(0, self.log_message, "❌ Ошибка при использовании валюты")
-                            human_delay(2.0, 3.0)  # Длинная пауза при ошибке
+                        if not success:
                             continue
 
-                    # ПЕРИОДИЧЕСКАЯ ПРОВЕРКА МОДОВ
-                    if attempt % 3 == 0 and self.current_config and self.current_config.get('scan_region'):
+                    # 🔧 ИСПРАВЛЕНИЕ: ДОБАВЛЯЕМ ПАУЗУ ПОСЛЕ КЛИКА ДЛЯ ОБНОВЛЕНИЯ МОДОВ
+                    self.root.after(0, self.log_message, "⏳ Жду обновления модов...")
+                    human_delay(0.5, 1.0)  # Важно! Даем время игре обновить моды
+
+                    # 🔧 ИСПРАВЛЕНИЕ: СКАНИРУЕМ ПОСЛЕ КАЖДОГО КЛИКА (не каждые 3 попытки)
+                    if self.current_config:
                         self.root.after(0, self.log_message, "📷 Сканирую моды...")
                         mods = scanner.scan_item(self.current_config['scan_region'])
 
                         if mods:
                             self.root.after(0, self.log_message, f"📄 Найдено модов: {len(mods)}")
 
+                            # 🔧 ИСПРАВЛЕНИЕ: ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ
+                            for i, mod in enumerate(mods, 1):
+                                self.root.after(0, self.log_message, f"   {i}. {mod}")
+
                             # ПРОВЕРКА ЦЕЛЕВЫХ МОДОВ
                             target_mods = self.current_config.get('target_mods', [])
-                            if scanner.has_desired_mod(mods, target_mods):
+                            found_target = scanner.has_desired_mod(mods, target_mods)
+
+                            if found_target:
                                 self.root.after(0, self.log_message, f"🎉 ЦЕЛЕВОЙ МОД НАЙДЕН! Попытка: {attempt}")
                                 self.root.after(0, self.stop_bot)
                                 break
+                            else:
+                                self.root.after(0, self.log_message, "❌ Целевые моды не найдены в этом скане")
                         else:
                             self.root.after(0, self.log_message, "❌ Не удалось распознать моды")
 
-                    # СЛУЧАЙНАЯ ПАУЗА МЕЖДУ ПОПЫТКАМИ
-                    human_delay(1.0, 2.5)
+                    # ПАУЗА МЕЖДУ ЦИКЛАМИ
+                    human_delay(1.0, 2.0)
 
                 except Exception as e:
-                    self.root.after(0, self.log_message, f"❌ Ошибка в цикле крафта: {e}")
-                    human_delay(3.0, 5.0)  # Длинная пауза при ошибке
-
-                # ПРОВЕРКА ОСТАНОВКИ
-                if not self.bot_running:
-                    break
+                    self.root.after(0, self.log_message, f"❌ Ошибка в цикле: {e}")
+                    human_delay(3.0, 5.0)
 
             if self.bot_running:
-                self.root.after(0, self.log_message, f"🏁 Крафт завершен. Попыток: {attempt}")
+                self.root.after(0, self.log_message, f"🏁 Завершено. Попыток: {attempt}")
                 self.root.after(0, self.stop_bot)
 
         except Exception as e:
@@ -611,17 +627,45 @@ class PoeCraftBotGUI:
     def save_settings(self):
         """Сохраняет настройки и логирует их"""
         try:
-            # Ваша существующая логика сохранения
+            # СОБИРАЕМ НАСТРОЙКИ ИЗ GUI
+            target_mods_text = self.target_mods_entry.get()
+            target_mods = [mod.strip() for mod in target_mods_text.split(',')]
+
+            max_attempts = self.max_attempts_var.get()
+            min_delay = self.min_delay_var.get()
+            max_delay = self.max_delay_var.get()
+            safety_enabled = self.safety_enabled.get()
+
+            print("💾 Сохраняем настройки из GUI:")
+            print(f"   Целевые моды: {target_mods}")
+            print(f"   Макс. попыток: {max_attempts}")
+            print(f"   Задержки: {min_delay}-{max_delay}сек")
+            print(f"   Безопасность: {safety_enabled}")
+
+            # ОБНОВЛЯЕМ ТЕКУЩИЙ КОНФИГ
+            if self.current_config is None:
+                self.current_config = {}
+
+            self.current_config['target_mods'] = target_mods
+            self.current_config['max_attempts'] = int(max_attempts)
+            self.current_config['min_delay'] = float(min_delay)
+            self.current_config['max_delay'] = float(max_delay)
+
+            # СОХРАНЯЕМ В ФАЙЛ
+            import json
+            with open('config.json', 'w') as f:
+                json.dump(self.current_config, f, indent=4)
+
             messagebox.showinfo("Сохранение", "Настройки сохранены!")
 
             # ЛОГИРУЕМ НОВЫЕ НАСТРОЙКИ
             settings_text = f"""
     💾 СОХРАНЕНЫ НОВЫЕ НАСТРОЙКИ:
-    ├── Целевые моды: {self.target_mods_entry.get()}
-    ├── Макс. попыток: {self.max_attempts_var.get()}
-    ├── Мин. задержка: {self.min_delay_var.get()}с
-    ├── Макс. задержка: {self.max_delay_var.get()}с
-    └── Безопасность: {'ВКЛ' if self.safety_enabled.get() else 'ВЫКЛ'}
+    ├── Целевые моды: {target_mods_text}
+    ├── Макс. попыток: {max_attempts}
+    ├── Мин. задержка: {min_delay}с
+    ├── Макс. задержка: {max_delay}с
+    └── Безопасность: {'ВКЛ' if safety_enabled else 'ВЫКЛ'}
     """
             self.log_message(settings_text)
 

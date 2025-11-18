@@ -5,17 +5,23 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="96f96b77-32b3-431b-bdc0-7bfa3995ed14" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/check_structure.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/force_update.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gui/calibration_window.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tests/test_real_components.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/check_monitor_setup.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/check_region.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/check_tesseract.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/debug_ocr.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/direct_region_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/find_right_monitor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/full_system_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test_accuracy_scan.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test_mss.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test_right_monitor_scanner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/calibration_log.json" beforeDir="false" afterPath="$PROJECT_DIR$/calibration_log.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/controller.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/safety.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/safety.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/scanner.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/scanner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/main_window.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/run_gui.py" beforeDir="false" afterPath="$PROJECT_DIR$/run_gui.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/calibrator.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/calibrator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/helpers.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/helpers.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,17 +53,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;Errors&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "main",
+    "settings.editor.selected.configurable": "proofread"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\Stanislav\PycharmProjects\vibeMoney" />
       <recent name="C:\Users\stlemeshonok\PycharmProjects\vibeMoney" />
     </key>
   </component>
