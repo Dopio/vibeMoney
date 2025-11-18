@@ -315,3 +315,26 @@ class CalibrationWindow:
         if self.keyboard_listener:
             self.keyboard_listener.stop()
         self.window.destroy()
+
+    def save_scan_region(self, x1, y1, x2, y2):
+        """Сохраняет область сканирования модов"""
+        try:
+            # 🔧 ИСПРАВЛЕНИЕ: конвертируем в формат (x, y, width, height)
+            x = min(x1, x2)
+            y = min(y1, y2)
+            width = abs(x2 - x1)
+            height = abs(y2 - y1)
+
+            scan_region = (x, y, width, height)
+
+            print(f"📏 Сохранен регион сканирования: {scan_region}")
+
+            # Обновляем конфиг
+            self.update_config({'scan_region': scan_region})
+            self.parent.log_message(f"📏 Область сканирования: {scan_region}")
+
+            return True
+
+        except Exception as e:
+            print(f"❌ Ошибка сохранения региона: {e}")
+            return False

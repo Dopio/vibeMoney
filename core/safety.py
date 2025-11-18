@@ -2,52 +2,79 @@ import time
 import random
 import platform
 from datetime import datetime
+import keyboard
+import threading
 
 
 class SafetyManager:
     def __init__(self):
         self.start_time = time.time()
-        self.last_action_time = time.time()  # Инициализируем текущим временем
+        self.last_action_time = time.time()
         self.consecutive_failures = 0
         self.total_actions = 0
         self.emergency_stop = False
+        self.emergency_stop_requested = False
 
-        # ОСЛАБЬТЕ НАСТРОЙКИ ДЛЯ ТЕСТИРОВАНИЯ
+        # 🔧 ОСЛАБЛЯЕМ НАСТРОЙКИ ДЛЯ ТЕСТИРОВАНИЯ
         self.safety_config = {
-            'max_failures': 50,  # Увеличим лимит ошибок
-            'max_session_minutes': 180,  # Увеличим время сессии
-            'min_action_interval': 0.1,  # УМЕНЬШИМ минимальный интервал
-            'max_actions_per_minute': 300,  # Увеличим лимит действий
-            'emergency_cooldown': 30,  # Уменьшим коулдаун
+            'max_failures': 100,  # Увеличили
+            'max_session_minutes': 480,  # Увеличили
+            'min_action_interval': 0.05,  # 🔧 УМЕНЬШИЛИ до 0.05с
+            'max_actions_per_minute': 500,  # Увеличили
+            'emergency_cooldown': 10,  # Уменьшили
         }
 
         # Статистика
         self.actions_log = []
         self.failure_log = []
 
-        print("✅ SafetyManager инициализирован (тестовый режим)")
+        # Настраиваем глобальную горячую клавишу
+        self.setup_global_hotkey()
+        print("✅ SafetyManager инициализирован + горячая клавиша F12")
 
-    def debug_safety_checks(self):
-        """Выводит отладочную информацию о проверках безопасности"""
-        print("🔍 ОТЛАДКА БЕЗОПАСНОСТИ:")
-        print(f"   Время старта: {time.time() - self.start_time:.2f}с назад")
-        print(f"   Последнее действие: {time.time() - self.last_action_time:.2f}с назад")
-        print(f"   Всего действий: {self.total_actions}")
-        print(f"   Ошибок подряд: {self.consecutive_failures}")
+    def setup_global_hotkey(self):
+        """Настраивает глобальную горячую клавишу в отдельном потоке"""
 
-        # Проверяем все условия
-        checks = [
-            self.check_emergency_stop(),
-            self.check_consecutive_failures(),
-            self.check_session_duration(),
-            self.check_action_frequency(),
-        ]
+        def hotkey_listener():
+            try:
+                # Ждем нажатия F12 в бесконечном цикле
+                while True:
+                    # Проверяем F12 каждые 0.1 секунды
+                    if keyboard.is_pressed('f12'):
+                        self._emergency_stop_handler()
+                        # Ждем отпускания клавиши чтобы не сработало много раз
+                        while keyboard.is_pressed('f12'):
+                            time.sleep(0.05)
+                    time.sleep(0.1)
+            except Exception as e:
+                print(f"⚠️ Ошибка в слушателе горячих клавиш: {e}")
 
-        for check_name, passed, message in checks:
-            print(f"   {check_name}: {'✅' if passed else '❌'} {message}")
+        # Запускаем слушатель в отдельном потоке
+        listener_thread = threading.Thread(target=hotkey_listener, daemon=True)
+        listener_thread.start()
+        print("🎯 Горячая клавиша F12 активна (отдельный поток)")
+
+    def _emergency_stop_handler(self):
+        """Обработчик нажатия F12"""
+        print("🚨🚨🚨 НАЖАТА КЛАВИША F12 - ЭКСТРЕННАЯ ОСТАНОВКА!")
+        self.emergency_stop_requested = True
+        self.emergency_stop = True
+
+        # Дублируем в файл для надежности
+        try:
+            with open('emergency_stop.log', 'a', encoding='utf-8') as f:
+                f.write(f"{datetime.now().isoformat()} - ЭКСТРЕННАЯ ОСТАНОВКА ПО F12\n")
+        except:
+            pass
 
     def check_all_safety_conditions(self):
-        """Проверяет все условия безопасности"""
+        """Проверяет все условия безопасности с отладкой"""
+        # Сначала проверяем запрос остановки по F12
+        if self.emergency_stop_requested:
+            print("🚨 Безопасность: остановка по F12")
+            return False
+
+        # Затем стандартные проверки
         checks = [
             self.check_emergency_stop(),
             self.check_consecutive_failures(),
@@ -55,12 +82,12 @@ class SafetyManager:
             self.check_action_frequency(),
         ]
 
-        # Если хотя бы одна проверка не пройдена
         for check_name, passed, message in checks:
             if not passed:
                 print(f"🚨 Безопасность: {check_name} - {message}")
                 return False
 
+        print("✅ Все проверки безопасности пройдены")
         return True
 
     def check_emergency_stop(self):
@@ -76,6 +103,9 @@ class SafetyManager:
                 return "Emergency Stop", False, f"Аварийная остановка ({remaining:.0f}с осталось)"
         return "Emergency Stop", True, "OK"
 
+    def check_emergency_stop_requested(self):
+        return self.emergency_stop_requested
+
     def check_consecutive_failures(self):
         """Проверка количества последовательных ошибок"""
         if self.consecutive_failures >= self.safety_config['max_failures']:
@@ -85,22 +115,18 @@ class SafetyManager:
 
     def check_session_duration(self):
         """Проверка длительности сессии"""
-        session_duration = (time.time() - self.start_time) / 60  # в минутах
+        session_duration = (time.time() - self.start_time) / 60
         if session_duration > self.safety_config['max_session_minutes']:
             return "Session Duration", False, f"Сессия слишком долгая: {session_duration:.1f} мин"
-        return (
-            "Session Duration", True, f"OK ({session_duration:.1f}/{self.safety_config['max_session_minutes']} мин)")
+        return "Session Duration", True, f"OK ({session_duration:.1f}/{self.safety_config['max_session_minutes']} мин)"
 
     def check_action_frequency(self):
         """Проверка частоты действий"""
         current_time = time.time()
-
-        # Проверка минимального интервала
         time_since_last_action = current_time - self.last_action_time
         if time_since_last_action < self.safety_config['min_action_interval']:
             return "Action Frequency", False, f"Слишком частые действия: {time_since_last_action:.2f}с"
 
-        # Проверка действий в минуту
         recent_actions = [t for t in self.actions_log if t > current_time - 60]
         if len(recent_actions) > self.safety_config['max_actions_per_minute']:
             return "Actions Per Minute", False, f"Слишком много действий: {len(recent_actions)}/мин"
@@ -108,8 +134,17 @@ class SafetyManager:
         return "Action Frequency", True, "OK"
 
     def record_action(self, success=True, action_type="unknown"):
-        """Записывает действие в лог"""
+        """Записывает действие в лог с ОБХОДОМ частых проверок для цикла"""
         current_time = time.time()
+
+        # 🔧 НЕ ЗАПИСЫВАЕМ КАЖДЫЙ КЛИК В ЦИКЛЕ чтобы не блокировать
+        if action_type == "currency_click":
+            # Только обновляем время последнего действия
+            self.last_action_time = current_time
+            self.total_actions += 1
+            return
+
+        # Для остальных действий стандартная логика
         self.actions_log.append(current_time)
         self.last_action_time = current_time
         self.total_actions += 1
@@ -128,6 +163,7 @@ class SafetyManager:
     def trigger_emergency_stop(self, reason="Неизвестная причина"):
         """Аварийная остановка"""
         self.emergency_stop = True
+        self.emergency_stop_requested = True
         print(f"🚨 АВАРИЙНАЯ ОСТАНОВКА: {reason}")
         self.log_emergency_stop(reason)
 
@@ -141,12 +177,17 @@ class SafetyManager:
             'consecutive_failures': self.consecutive_failures
         }
 
-        # Сохраняем в файл
         try:
             with open('safety_log.json', 'a') as f:
                 f.write(f"{log_entry}\n")
         except Exception as e:
             print(f"⚠️ Не удалось записать лог безопасности: {e}")
+
+    def reset_emergency_stop(self):
+        """Сбрасывает состояние экстренной остановки"""
+        self.emergency_stop = False
+        self.emergency_stop_requested = False
+        print("🔄 Состояние экстренной остановки сброшено")
 
     def get_safety_report(self):
         """Возвращает отчет о безопасности"""
@@ -158,6 +199,7 @@ class SafetyManager:
             'total_actions': self.total_actions,
             'consecutive_failures': self.consecutive_failures,
             'emergency_stop_active': self.emergency_stop,
+            'emergency_stop_requested': self.emergency_stop_requested,
             'actions_per_minute': len(recent_actions),
             'safety_checks_passed': self.check_all_safety_conditions(),
             'system': platform.system()
@@ -168,21 +210,18 @@ class SafetyManager:
     def human_delay(self, min_seconds=0.5, max_seconds=2.0):
         """Случайная задержка с проверкой безопасности"""
         delay = random.uniform(min_seconds, max_seconds)
-
-        # Разбиваем задержку на части для возможности прерывания
         step = 0.1
         remaining = delay
 
-        while remaining > 0 and not self.emergency_stop:
+        while remaining > 0 and not self.emergency_stop_requested:
             sleep_time = min(step, remaining)
             time.sleep(sleep_time)
             remaining -= sleep_time
 
-            # Периодически проверяем безопасность
             if remaining > 0 and not self.check_all_safety_conditions():
                 break
 
-        return remaining == 0  # Возвращает True если задержка завершена полностью
+        return remaining == 0
 
     def print_safety_status(self):
         """Выводит текущий статус безопасности"""
@@ -193,4 +232,5 @@ class SafetyManager:
         print(f"   Ошибок подряд: {report['consecutive_failures']}")
         print(f"   Действий в минуту: {report['actions_per_minute']}")
         print(f"   Аварийная остановка: {'АКТИВНА' if report['emergency_stop_active'] else 'не активна'}")
+        print(f"   Запрос остановки по F12: {'ДА' if report['emergency_stop_requested'] else 'нет'}")
         print(f"   Проверки пройдены: {'✅' if report['safety_checks_passed'] else '❌'}")

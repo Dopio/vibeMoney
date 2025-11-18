@@ -11,3 +11,4 @@
 {'timestamp': '2025-11-13T17:49:54.625663', 'reason': '—лишком много ошибок подр€д', 'total_actions': 12, 'session_duration_minutes': 0.15057227611541749, 'consecutive_failures': 12}
 {'timestamp': '2025-11-13T17:49:55.628245', 'reason': '—лишком много ошибок подр€д', 'total_actions': 12, 'session_duration_minutes': 0.16728197336196898, 'consecutive_failures': 12}
 {'timestamp': '2025-11-13T17:49:55.628245', 'reason': '—лишком много ошибок подр€д', 'total_actions': 12, 'session_duration_minutes': 0.16728197336196898, 'consecutive_failures': 12}
+{'timestamp': '2025-11-18T14:24:47.471307', 'reason': 'Ёкстренна€ остановка по гор€чей клавише', 'total_actions': 0, 'session_duration_minutes': 0.052693653106689456, 'consecutive_failures': 0}

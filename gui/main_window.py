@@ -365,94 +365,85 @@ class PoeCraftBotGUI:
             self.log_message(f"⚠️ Ошибка записи статистики: {e}")
 
     def run_bot(self):
-        """Основной цикл бота"""
+        """Основной цикл бота с улучшенной диагностикой"""
         try:
             from core.controller import CraftController
             from core.scanner import ItemScanner
             from core.safety import SafetyManager
-            from utils.helpers import human_delay
 
             safety = SafetyManager()
-            controller = CraftController(safety)
             scanner = ItemScanner(safety)
+            controller = CraftController(safety)
+            controller.set_scanner(scanner)
 
-            print("🎮 Запуск реального бота...")
-            self.root.after(0, self.log_message, "🎮 Запуск реального бота...")
+            self.root.after(0, self.log_message, "🎮 Запуск бота...")
+            self.root.after(0, self.log_message, "🎯 F12 для остановки")
+            self.root.after(0, self.log_message, "💡 Убедитесь что PoE окно активно!")
 
-            # ПАУЗА ПЕРЕД НАЧАЛОМ
-            time.sleep(2)
+            time.sleep(3)  # 🔧 УВЕЛИЧИЛИ паузу для ручной фокусировки
 
-            attempt = 0
-            max_attempts = 50
+            if self.current_config:
+                currency_pos = self.current_config.get('currency_position')
+                item_pos = self.current_config.get('item_position')
+                target_mods = self.current_config.get('target_mods', ['accuracy'])
+                scan_region = self.current_config.get('scan_region')
 
-            while self.bot_running and attempt < max_attempts:
-                attempt += 1
+                self.root.after(0, self.log_message, f"💰 Позиция валюты: {currency_pos}")
+                self.root.after(0, self.log_message, f"🎒 Позиция предмета: {item_pos}")
+                self.root.after(0, self.log_message, f"🎯 Целевые моды: {', '.join(target_mods)}")
+                self.root.after(0, self.log_message, f"📏 Регион сканирования: {scan_region}")
 
-                if not safety.check_all_safety_conditions():
-                    self.root.after(0, self.log_message, "🚨 Остановлено системой безопасности")
-                    break
+                if not currency_pos or not item_pos:
+                    self.root.after(0, self.log_message, "❌ Ошибка: не настроены позиции")
+                    self.root.after(0, self.stop_bot)
+                    return
 
-                self.root.after(0, self.update_progress, f"Попытка {attempt}/{max_attempts}")
-                self.root.after(0, self.log_message, f"♻️ Попытка {attempt}")
+                if not scan_region:
+                    self.root.after(0, self.log_message, "❌ Ошибка: не настроен регион сканирования")
+                    self.root.after(0, self.stop_bot)
+                    return
 
-                try:
-                    # ПАУЗА ПЕРЕД ДЕЙСТВИЕМ
-                    human_delay(0.5, 1.0)
+                controller.set_scan_region(scan_region)
 
-                    # ИСПОЛЬЗОВАНИЕ ВАЛЮТЫ
-                    if self.current_config:
-                        self.root.after(0, self.log_message, "💰 Использую Orb of Alteration...")
+                # 🔧 УПРОЩЕННАЯ ДИАГНОСТИКА
+                self.root.after(0, self.log_message, "🔍 Тестовое сканирование...")
+                test_mods = scanner.scan_item(scan_region)
+                self.root.after(0, self.log_message, f"🧪 Найдено модов: {len(test_mods)}")
 
-                        success = controller.use_currency(
-                            self.current_config['currency_position'],
-                            self.current_config['item_position']
-                        )
+                if test_mods:
+                    for i, mod in enumerate(test_mods, 1):
+                        self.root.after(0, self.log_message, f"   {i}. {mod}")
 
-                        if not success:
-                            continue
+                # 🔧 ЗАПУСКАЕМ КРАФТ
+                self.root.after(0, self.log_message, "🚀 Запуск цикла крафта...")
 
-                    # 🔧 ИСПРАВЛЕНИЕ: ДОБАВЛЯЕМ ПАУЗУ ПОСЛЕ КЛИКА ДЛЯ ОБНОВЛЕНИЯ МОДОВ
-                    self.root.after(0, self.log_message, "⏳ Жду обновления модов...")
-                    human_delay(0.5, 1.0)  # Важно! Даем время игре обновить моды
+                success = controller.use_currency(
+                    currency_pos=currency_pos,
+                    item_pos=item_pos,
+                    max_attempts=20,
+                    target_mods=target_mods
+                )
 
-                    # 🔧 ИСПРАВЛЕНИЕ: СКАНИРУЕМ ПОСЛЕ КАЖДОГО КЛИКА (не каждые 3 попытки)
-                    if self.current_config:
-                        self.root.after(0, self.log_message, "📷 Сканирую моды...")
-                        mods = scanner.scan_item(self.current_config['scan_region'])
+                if success:
+                    self.root.after(0, self.log_message, "🎉 КРАФТ УСПЕШЕН!")
+                else:
+                    # 🔧 ИСПРАВЛЕНИЕ: правильная проверка F12
+                    if hasattr(safety, 'emergency_stop_requested') and safety.emergency_stop_requested:
+                        self.root.after(0, self.log_message, "🚨 ОСТАНОВЛЕНО ПО F12")
+                    else:
+                        self.root.after(0, self.log_message, "❌ Мод не найден")
 
-                        if mods:
-                            self.root.after(0, self.log_message, f"📄 Найдено модов: {len(mods)}")
+            else:
+                self.root.after(0, self.log_message, "❌ Конфиг не загружен")
 
-                            # 🔧 ИСПРАВЛЕНИЕ: ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ
-                            for i, mod in enumerate(mods, 1):
-                                self.root.after(0, self.log_message, f"   {i}. {mod}")
-
-                            # ПРОВЕРКА ЦЕЛЕВЫХ МОДОВ
-                            target_mods = self.current_config.get('target_mods', [])
-                            found_target = scanner.has_desired_mod(mods, target_mods)
-
-                            if found_target:
-                                self.root.after(0, self.log_message, f"🎉 ЦЕЛЕВОЙ МОД НАЙДЕН! Попытка: {attempt}")
-                                self.root.after(0, self.stop_bot)
-                                break
-                            else:
-                                self.root.after(0, self.log_message, "❌ Целевые моды не найдены в этом скане")
-                        else:
-                            self.root.after(0, self.log_message, "❌ Не удалось распознать моды")
-
-                    # ПАУЗА МЕЖДУ ЦИКЛАМИ
-                    human_delay(1.0, 2.0)
-
-                except Exception as e:
-                    self.root.after(0, self.log_message, f"❌ Ошибка в цикле: {e}")
-                    human_delay(3.0, 5.0)
-
-            if self.bot_running:
-                self.root.after(0, self.log_message, f"🏁 Завершено. Попыток: {attempt}")
-                self.root.after(0, self.stop_bot)
+            self.root.after(0, self.stop_bot)
 
         except Exception as e:
-            self.root.after(0, self.log_message, f"❌ Критическая ошибка: {e}")
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"❌ Ошибка: {e}")
+            print(f"📋 Детали: {error_details}")
+            self.root.after(0, self.log_message, f"❌ Ошибка: {e}")
             self.root.after(0, self.stop_bot)
 
     def start_calibration(self):

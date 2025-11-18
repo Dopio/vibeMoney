@@ -5,23 +5,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="96f96b77-32b3-431b-bdc0-7bfa3995ed14" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/check_monitor_setup.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/check_region.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/check_tesseract.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/debug_ocr.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/direct_region_test.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/find_right_monitor.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/full_system_test.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test_accuracy_scan.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test_mss.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test_right_monitor_scanner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/calibration_log.json" beforeDir="false" afterPath="$PROJECT_DIR$/calibration_log.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/controller.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/safety.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/safety.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/scanner.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/scanner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/calibration_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/calibration_window.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/main_window.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/helpers.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/helpers.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/safety_log.json" beforeDir="false" afterPath="$PROJECT_DIR$/safety_log.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scanner_capture.png" beforeDir="false" afterPath="$PROJECT_DIR$/scanner_capture.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_imagegrab.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_pyautogui.png" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

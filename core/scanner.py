@@ -87,11 +87,15 @@ class ItemScanner:
             return []
 
     def _capture_region_mss(self, region):
-        """Захватывает область используя mss (работает с правым монитором)"""
+        """Захватывает область используя mss"""
         try:
             x, y, w, h = region
 
-            # Захватываем область
+            print(f"📷 Захват региона: x={x}, y={y}, w={w}, h={h}")
+            print(f"📺 Правый монитор: {self.right_monitor}")
+
+            # 🔧 ПРОСТОЙ ПОДХОД: используем координаты как есть
+            # MSS сам разберется с мультимониторной конфигурацией
             monitor_region = {
                 'left': x,
                 'top': y,
@@ -102,9 +106,9 @@ class ItemScanner:
             screenshot = self.sct.grab(monitor_region)
             img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
 
-            # Сохраняем для отладки (можно убрать в продакшене)
-            img.save('scanner_capture.png')
-            print("✅ Скриншот сохранен: scanner_capture.png")
+            # Сохраняем оригинальный скриншот для отладки
+            img.save('scanner_original.png')
+            print("✅ Оригинальный скриншот сохранен: scanner_original.png")
 
             return img
 
@@ -113,25 +117,38 @@ class ItemScanner:
             return None
 
     def _preprocess_image(self, image):
-        """Подготавливает изображение для OCR"""
-        # Конвертируем в numpy array для OpenCV
-        img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        """Подготавливает изображение для OCR - УПРОЩЕННАЯ ВЕРСИЯ"""
+        try:
+            # Конвертируем в numpy array для OpenCV
+            img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 
-        # Конвертируем в grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # 🔧 ПРОСТОЙ ПОДХОД: конвертируем в grayscale
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # Увеличиваем контраст
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        enhanced = clahe.apply(gray)
+            # 🔧 ДОБАВЛЯЕМ ПРОВЕРКУ: если изображение слишком темное/светлое
+            avg_brightness = np.mean(gray)
+            print(f"📊 Средняя яркость: {avg_brightness}")
 
-        # Бинаризация
-        _, binary = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            if avg_brightness > 200:  # Слишком белое
+                # 🔧 УМЕНЬШАЕМ ЯРКОСТЬ
+                gray = cv2.convertScaleAbs(gray, alpha=0.7, beta=0)
+            elif avg_brightness < 50:  # Слишком темное
+                # 🔧 УВЕЛИЧИВАЕМ ЯРКОСТЬ
+                gray = cv2.convertScaleAbs(gray, alpha=1.3, beta=20)
 
-        # Убираем шум
-        kernel = np.ones((2, 2), np.uint8)
-        cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+            # 🔧 ПРОСТАЯ бинаризация вместо адаптивной
+            _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-        return cleaned
+            # Сохраняем для отладки
+            cv2.imwrite('scanner_processed.png', binary)
+            print("✅ Обработанное изображение сохранено")
+
+            return binary
+
+        except Exception as e:
+            print(f"❌ Ошибка обработки изображения: {e}")
+            # Fallback: возвращаем оригинал в grayscale
+            return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
 
     def _extract_text(self, image):
         """Извлекает текст из изображения"""
@@ -150,19 +167,22 @@ class ItemScanner:
             print("❌ Текст для парсинга пустой")
             return mods
 
-        print(f"📝 Исходный текст для парсинга: '{text}'")
+        print(f"📝 Исходный текст: '{text}'")
 
         lines = text.split('\n')
 
         for line in lines:
             line_clean = line.strip()
-            if len(line_clean) > 2:  # Уменьшаем минимальную длину
-                # УЛУЧШЕННАЯ ПРОВЕРКА: ищем любые комбинации с цифрами
-                has_numbers = any(char.isdigit() for char in line_clean)
-                has_letters = any(char.isalpha() for char in line_clean)
 
-                if has_numbers and has_letters:
-                    # Очищаем мод от лишних пробелов
+            # 🔧 УЛУЧШЕНИЕ: более гибкие критерии для модов
+            if len(line_clean) > 3:  # Увеличиваем минимальную длину
+                # Ищем комбинации букв и цифр (типично для модов PoE)
+                has_letters = any(c.isalpha() for c in line_clean)
+                has_digits = any(c.isdigit() for c in line_clean)
+                has_special = any(c in '+%' for c in line_clean)  # Проценты и плюсы
+
+                # Считаем модом если есть буквы + (цифры или специальные символы)
+                if has_letters and (has_digits or has_special):
                     clean_mod = ' '.join(line_clean.split())
                     mods.append(clean_mod)
                     print(f"✅ Добавлен мод: '{clean_mod}'")
