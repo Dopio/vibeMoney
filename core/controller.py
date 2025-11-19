@@ -1,7 +1,7 @@
 import pyautogui
 import random
 import time
-from utils.helpers import human_delay, show_message
+from utils.helpers import show_message
 
 
 class CraftController:
@@ -20,129 +20,35 @@ class CraftController:
         """Устанавливает регион сканирования"""
         self.scan_region = scan_region
 
-    def _use_currency_cycle(self, currency_pos, item_pos, max_attempts, target_mods):
-        """Цикл крафта с УСКОРЕННЫМИ кликами"""
-        show_message("⚡ ПКМ + Shift + БЫСТРЫЙ цикл ЛКМ")
-
+    def use_currency(self, currency_pos, item_pos, max_attempts=50, target_mods=None):
+        """Использует валюту на предмете - ОСНОВНОЙ МЕТОД"""
         try:
-            # 🔧 УСКОРЕНИЕ: пропускаем начальное сканирование или делаем быстрее
-            show_message("🔍 Быстрая проверка модов...")
-            initial_mods = self._scan_current_mods(target_mods)
-            if initial_mods and self._check_mods_for_target(initial_mods, target_mods):
-                show_message("⚠️ Целевой мод уже есть на предмете!")
+            if self.safety and self.safety.check_emergency_stop_requested():
+                show_message("🚨 ОСТАНОВКА ПО F12")
                 return False
 
-            # 1. Наводим мышь на валюту - БЫСТРЕЕ
-            self._move_to_position(currency_pos, "валюту")
-            if not self._check_safety_continuous():
-                self._release_shift()
-                return False
-            time.sleep(0.3)  # 🔧 УМЕНЬШИЛИ с 0.5 до 0.3
+            show_message(f"🔄 Запуск цикла крафта (макс. {max_attempts} попыток)")
+            time.sleep(1)
 
-            # 2. ПРАВАЯ кнопка мыши по валюте - БЫСТРЕЕ
-            pyautogui.mouseDown(button='right')
-            time.sleep(0.05)  # 🔧 УМЕНЬШИЛИ с 0.1-0.2 до 0.05
-            pyautogui.mouseUp(button='right')
-            show_message("💰 Взяли валюту")
-            if not self._check_safety_continuous():
-                self._release_shift()
-                return False
-            time.sleep(0.3)  # 🔧 УМЕНЬШИЛИ с 0.5 до 0.3
+            success = self._use_currency_cycle(currency_pos, item_pos, max_attempts, target_mods)
 
-            # 3. Зажимаем Shift - БЫСТРЕЕ
-            pyautogui.keyDown('shift')
-            self.shift_held = True
-            show_message("⇧ Shift зажат")
-            if not self._check_safety_continuous():
-                self._release_shift()
-                return False
-            time.sleep(0.2)  # 🔧 УМЕНЬШИЛИ с 0.3 до 0.2
-
-            # 4. Наводим мышь на предмет - БЫСТРЕЕ
-            self._move_to_position(item_pos, "предмет")
-            if not self._check_safety_continuous():
-                self._release_shift()
-                return False
-            time.sleep(0.2)  # 🔧 УМЕНЬШИЛИ с 0.3 до 0.2
-
-            # 🔧 ЗАПИСЫВАЕМ ОДНО ДЕЙСТВИЕ ДЛЯ ВСЕГО ЦИКЛА
-            if self.safety:
-                self.safety.record_action(success=True, action_type="currency_cycle_start")
-
-            # 5. ЦИКЛ: БЫСТРЫЕ применения валюты
-            for attempt in range(1, max_attempts + 1):
-                # ✅ Проверяем F12
-                if not self._check_safety_continuous():
-                    show_message("🚨 ПРЕРВАНО по F12")
-                    self._release_shift()
-                    return False
-
-                show_message(f"🎯 Применение #{attempt}")
-
-                # 🔧 УСКОРЕНИЕ: БЫСТРЫЙ клик левой кнопкой
-                pyautogui.mouseDown(button='left')
-                time.sleep(0.02)  # 🔧 СУПЕР БЫСТРО: было 0.1-0.2, стало 0.02
-                pyautogui.mouseUp(button='left')
-
-                show_message(f"✅ Применено {attempt} раз")
-
-                # 🔧 НЕ ЗАПИСЫВАЕМ КАЖДЫЙ КЛИК - только обновляем время
+            if success:
+                self.action_count += 1
                 if self.safety:
-                    self.safety.last_action_time = time.time()
+                    self.safety.record_action(success=True, action_type="currency_cycle")
 
-                # 🔧 УСКОРЕНИЕ: МЕНЬШАЯ пауза для обновления игры
-                show_message("⏳ Жду обновления игры...")
-                time.sleep(0.8)  # 🔧 УМЕНЬШИЛИ с 1.5 до 0.8
-
-                # 🔧 ПРОВЕРЯЕМ МОДЫ ПОСЛЕ применения валюты
-                show_message("🔍 Сканирую моды...")
-                current_mods = self._scan_current_mods(target_mods)
-
-                if current_mods:
-                    show_message(f"📄 Найдено модов: {len(current_mods)}")
-
-                    # 🔧 УСКОРЕНИЕ: быстрая проверка без детального логгирования каждого мода
-                    if self._check_mods_for_target(current_mods, target_mods):
-                        show_message(f"🎉 НУЖНЫЙ МОД НАЙДЕН! Попытка: {attempt}")
-                        self._release_shift()
-                        if self.safety:
-                            self.safety.record_action(success=True, action_type="currency_cycle_success")
-                        return True
-                    else:
-                        show_message("❌ Целевые моды не найдены, продолжаем...")
-                else:
-                    show_message("❌ Не удалось распознать моды, продолжаем...")
-
-                # 🔧 УСКОРЕНИЕ: МЕНЬШАЯ пауза между применениями
-                if attempt < max_attempts:
-                    show_message("⏸️ Короткая пауза...")
-                    time.sleep(0.3)  # 🔧 УМЕНЬШИЛИ с 0.5-1.0 до 0.3
-
-            # Если дошли сюда - не нашли нужный мод
-            show_message(f"❌ Цикл завершен - нужный мод не найден за {max_attempts} попыток")
-            self._release_shift()
-            if self.safety:
-                self.safety.record_action(success=False, action_type="currency_cycle_failed")
-            return False
+            return success
 
         except Exception as e:
+            show_message(f"❌ Ошибка в цикле крафта: {e}")
             self._release_shift()
-            if self.safety:
-                self.safety.record_action(success=False, action_type="currency_cycle_error")
-            raise e
+            return False
 
     def _use_currency_cycle(self, currency_pos, item_pos, max_attempts, target_mods):
-        """Цикл крафта с ПРАВИЛЬНОЙ обработкой безопасности"""
+        """Цикл крафта - ПКМ на валюту → Shift → ЛКМ на предмет"""
         show_message("⚡ ПКМ + Shift + цикл ЛКМ")
 
         try:
-            # 🔧 СНАЧАЛА ПРОВЕРЯЕМ ТЕКУЩИЕ МОДЫ
-            show_message("🔍 Первоначальное сканирование модов...")
-            initial_mods = self._scan_current_mods(target_mods)
-            if initial_mods and self._check_mods_for_target(initial_mods, target_mods):
-                show_message("⚠️ Целевой мод уже есть на предмете!")
-                return False
-
             # 1. Наводим мышь на валюту
             self._move_to_position(currency_pos, "валюту")
             if not self._check_safety_continuous():
@@ -176,13 +82,8 @@ class CraftController:
                 return False
             time.sleep(0.3)
 
-            # 🔧 ЗАПИСЫВАЕМ ОДНО ДЕЙСТВИЕ ДЛЯ ВСЕГО ЦИКЛА
-            if self.safety:
-                self.safety.record_action(success=True, action_type="currency_cycle_start")
-
-            # 5. ЦИКЛ: применяем валюту и проверяем моды
+            # 5. ЦИКЛ применения валюты
             for attempt in range(1, max_attempts + 1):
-                # ✅ Проверяем F12
                 if not self._check_safety_continuous():
                     show_message("🚨 ПРЕРВАНО по F12")
                     self._release_shift()
@@ -194,65 +95,38 @@ class CraftController:
                 pyautogui.mouseDown(button='left')
                 time.sleep(random.uniform(0.1, 0.2))
                 pyautogui.mouseUp(button='left')
-
                 show_message(f"✅ Применено {attempt} раз")
 
-                # 🔧 НЕ ЗАПИСЫВАЕМ КАЖДЫЙ КЛИК - только обновляем время
+                # Обновляем время последнего действия
                 if self.safety:
-                    # Просто обновляем время без записи в лог
                     self.safety.last_action_time = time.time()
 
-                # 🔧 ПАУЗА ДЛЯ ОБНОВЛЕНИЯ ИГРЫ
+                # Пауза для обновления игры
                 show_message("⏳ Жду обновления игры...")
                 time.sleep(1.5)
 
-                # 🔧 ПРОВЕРЯЕМ МОДЫ ПОСЛЕ применения валюты
-                show_message("🔍 Сканирую новые моды...")
-                current_mods = self._scan_current_mods(target_mods)
+                # Проверяем моды
+                if self._check_for_desired_mod(target_mods):
+                    show_message(f"🎉 НУЖНЫЙ МОД НАЙДЕН! Попытка: {attempt}")
+                    self._release_shift()
+                    return True
 
-                if current_mods:
-                    show_message(f"📄 Найдено модов: {len(current_mods)}")
-                    # Логируем все найденные моды
-                    for i, mod in enumerate(current_mods, 1):
-                        show_message(f"   {i}. {mod}")
-
-                    # 🔧 ПРОВЕРЯЕМ НАЛИЧИЕ ЦЕЛЕВЫХ МОДОВ
-                    if self._check_mods_for_target(current_mods, target_mods):
-                        show_message(f"🎉 НУЖНЫЙ МОД НАЙДЕН! Попытка: {attempt}")
-                        self._release_shift()
-                        # 🔧 ЗАПИСЫВАЕМ УСПЕШНОЕ ЗАВЕРШЕНИЕ
-                        if self.safety:
-                            self.safety.record_action(success=True, action_type="currency_cycle_success")
-                        return True
-                    else:
-                        show_message("❌ Целевые моды не найдены, продолжаем...")
-                else:
-                    show_message("❌ Не удалось распознать моды, продолжаем...")
-
-                # 🔧 ПАУЗА МЕЖДУ ПРИМЕНЕНИЯМИ БЕЗ ЗАПИСИ ДЕЙСТВИЙ
+                # Пауза между применениями
                 if attempt < max_attempts:
                     show_message("⏸️ Пауза между применениями...")
-                    # Простая пауза без проверки безопасности (она уже в цикле)
                     time.sleep(random.uniform(0.5, 1.0))
 
-            # Если дошли сюда - не нашли нужный мод
             show_message(f"❌ Цикл завершен - нужный мод не найден за {max_attempts} попыток")
             self._release_shift()
-            # 🔧 ЗАПИСЫВАЕМ НЕУДАЧНОЕ ЗАВЕРШЕНИЕ
-            if self.safety:
-                self.safety.record_action(success=False, action_type="currency_cycle_failed")
             return False
 
         except Exception as e:
             self._release_shift()
-            if self.safety:
-                self.safety.record_action(success=False, action_type="currency_cycle_error")
             raise e
 
     def _check_for_desired_mod(self, target_mods):
-        """РЕАЛЬНАЯ проверка модов через сканер"""
+        """Проверяет наличие нужных модов через сканер"""
         if not target_mods or not self.scanner or not self.scan_region:
-            show_message("⚠️ Не настроен сканер или регион сканирования")
             return False
 
         try:
@@ -261,72 +135,22 @@ class CraftController:
 
             if mods:
                 show_message(f"📄 Найдено модов: {len(mods)}")
-                # Логируем все найденные моды
-                for i, mod in enumerate(mods, 1):
-                    show_message(f"   {i}. {mod}")
-
-                # Проверяем целевые моды
                 found = self.scanner.has_desired_mod(mods, target_mods)
-                if found:
-                    show_message(f"🎯 Найден целевой мод: {target_mods}")
-                    return True
-                else:
-                    show_message("❌ Целевые моды не найдены")
-            else:
-                show_message("❌ Не удалось распознать моды")
-
+                return found
             return False
 
-        except Exception as e:
-            show_message(f"⚠️ Ошибка проверки модов: {e}")
-            return False
-
-    def _scan_current_mods(self, target_mods):
-        """Сканирует текущие моды предмета"""
-        if not target_mods or not self.scanner or not self.scan_region:
-            return []
-
-        try:
-            # 🔧 ОЧИЩАЕМ КЭШ СКАНЕРА ПЕРЕД КАЖДЫМ СКАНИРОВАНИЕМ
-            if hasattr(self.scanner, 'last_scan_hash'):
-                self.scanner.last_scan_hash = None
-            if hasattr(self.scanner, 'last_scan_result'):
-                self.scanner.last_scan_result = None
-
-            mods = self.scanner.scan_item(self.scan_region)
-            return mods if mods else []
-
-        except Exception as e:
-            show_message(f"⚠️ Ошибка сканирования модов: {e}")
-            return []
-
-    def _check_mods_for_target(self, mods, target_mods):
-        """Проверяет, есть ли целевые моды в списке"""
-        if not mods or not target_mods:
-            return False
-
-        try:
-            found = self.scanner.has_desired_mod(mods, target_mods)
-            return found
         except Exception as e:
             show_message(f"⚠️ Ошибка проверки модов: {e}")
             return False
 
     def _check_safety_continuous(self):
-        """Упрощенная проверка безопасности"""
+        """Проверка безопасности"""
         if not self.safety:
             return True
 
-        # 🔧 ИСПРАВЛЕНИЕ: правильная проверка F12
-        if (hasattr(self.safety, 'emergency_stop_requested') and self.safety.emergency_stop_requested):
+        if hasattr(self.safety, 'emergency_stop_requested') and self.safety.emergency_stop_requested:
             return False
 
-        return True
-
-    def _safe_delay(self, min_seconds, max_seconds):
-        """Упрощенная задержка"""
-        delay = random.uniform(min_seconds, max_seconds)
-        time.sleep(delay)
         return True
 
     def _release_shift(self):

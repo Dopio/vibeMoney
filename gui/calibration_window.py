@@ -1,340 +1,251 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import pyautogui
 import json
-import time
-import threading
 import os
-from datetime import datetime
-from pynput import keyboard
+from pynput import mouse
+import threading
+import time
 
 
 class CalibrationWindow:
-    def __init__(self, parent_gui):  # ИЗМЕНИТЕ ПАРАМЕТР
-        self.parent_gui = parent_gui  # Сохраняем ссылку на основной GUI
-        self.window = tk.Toplevel(parent_gui.root)  # Используем root из parent_gui
-        self.window.title("Калибровка PoE Craft Bot")
-        self.window.geometry("600x500")
-        self.window.focus_force()
+    def __init__(self, parent):
+        self.parent = parent
+        self.calibration_data = {}
+        self.positions_captured = 0
+        self.listener = None
 
-        self.steps = [
-            {"name": "Orb of Alteration", "key": "F1", "config_key": "currency_position"},
-            {"name": "Предмет для крафта", "key": "F2", "config_key": "item_position"},
-            {"name": "Левый верхний угол текста модов", "key": "F3", "config_key": "scan_start"},
-            {"name": "Правый нижний угол текста модов", "key": "F4", "config_key": "scan_end"}
-        ]
-        self.current_step = 0
-        self.positions = {}
-        self.keyboard_listener = None
+        self.create_window()
+        self.setup_listener()
 
-        self.create_widgets()
-        self.start_keyboard_listener()
-        self.update_coordinates()
+    def create_window(self):
+        """Создает окно калибровки"""
+        self.window = tk.Toplevel(self.parent.root)
+        self.window.title("🎯 Калибровка позиций")
+        self.window.geometry("500x400")
+        self.window.resizable(False, False)
+        self.window.transient(self.parent.root)
+        self.window.grab_set()
 
-    def create_widgets(self):
+        # Центрируем окно
+        self.window.update_idletasks()
+        x = (self.window.winfo_screenwidth() // 2) - (500 // 2)
+        y = (self.window.winfo_screenheight() // 2) - (400 // 2)
+        self.window.geometry(f"500x400+{x}+{y}")
+
         # Заголовок
-        title = ttk.Label(self.window, text="🎯 Калибровка позиций",
-                          font=("Arial", 14, "bold"))
-        title.pack(pady=10)
+        title_label = ttk.Label(self.window,
+                                text="Калибровка позиций PoE Craft Bot",
+                                font=("Arial", 14, "bold"))
+        title_label.pack(pady=20)
 
         # Инструкция
-        instruction = ttk.Label(self.window,
-                                text="Используйте горячие клавиши для калибровки:\nНе нужно нажимать кнопки в этом окне!",
-                                justify="center", foreground="blue")
-        instruction.pack(pady=5)
+        instruction_text = """
+📋 ИНСТРУКЦИЯ ПО КАЛИБРОВКЕ:
 
-        # Текущий шаг
-        self.step_frame = ttk.LabelFrame(self.window, text="Текущий шаг")
-        self.step_frame.pack(fill="x", padx=10, pady=5)
+1. Нажмите F1 - позиция валюты (Orb of Alteration)
+2. Нажмите F2 - позиция предмета для крафта  
+3. Нажмите F3 - левый верхний угол области модов
+4. Нажмите F4 - правый нижний угол области модов
 
-        self.step_label = ttk.Label(self.step_frame, text="", font=("Arial", 11))
-        self.step_label.pack(pady=10)
+🎯 Для каждой позиции:
+   - Наведите курсор на нужное место
+   - Нажмите соответствующую клавишу F1-F4
+   - Подтвердите позицию
+        """
+        instruction_label = ttk.Label(self.window, text=instruction_text,
+                                      justify="left", padding=10)
+        instruction_label.pack(fill="x", padx=20)
 
         # Прогресс
-        self.progress_frame = ttk.LabelFrame(self.window, text="Прогресс")
-        self.progress_frame.pack(fill="x", padx=10, pady=5)
+        self.progress_frame = ttk.LabelFrame(self.window, text="Прогресс калибровки", padding=10)
+        self.progress_frame.pack(fill="x", padx=20, pady=10)
 
-        self.progress_bar = ttk.Progressbar(self.progress_frame, mode='determinate',
-                                            maximum=len(self.steps))
-        self.progress_bar.pack(fill="x", padx=10, pady=5)
+        self.progress_label = ttk.Label(self.progress_frame,
+                                        text="Ожидание начала калибровки...",
+                                        font=("Arial", 10))
+        self.progress_label.pack()
 
-        self.progress_label = ttk.Label(self.progress_frame, text="")
-        self.progress_label.pack(pady=5)
+        self.progress_bar = ttk.Progressbar(self.progress_frame, mode='determinate', maximum=4)
+        self.progress_bar.pack(fill="x", pady=5)
 
-        # Координаты в реальном времени
-        self.coord_frame = ttk.LabelFrame(self.window, text="Координаты мыши")
-        self.coord_frame.pack(fill="x", padx=10, pady=5)
+        # Текущие позиции
+        self.positions_frame = ttk.LabelFrame(self.window, text="Захваченные позиции", padding=10)
+        self.positions_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
-        self.coord_label = ttk.Label(self.coord_frame, text="Двигайте мышь...",
-                                     font=("Arial", 10))
-        self.coord_label.pack(pady=10)
-
-        # Захваченные позиции
-        self.preview_frame = ttk.LabelFrame(self.window, text="Захваченные позиции")
-        self.preview_frame.pack(fill="both", expand=True, padx=10, pady=5)
-
-        self.preview_text = tk.Text(self.preview_frame, height=8, width=60)
-        self.preview_text.pack(pady=5, padx=10, fill="both", expand=True)
+        self.positions_text = tk.Text(self.positions_frame, height=6, width=50)
+        self.positions_text.pack(fill="both", expand=True)
+        self.positions_text.insert("1.0", "Позиции появятся здесь...\n")
+        self.positions_text.config(state="disabled")
 
         # Кнопки управления
-        btn_frame = ttk.Frame(self.window)
-        btn_frame.pack(pady=10)
+        self.buttons_frame = ttk.Frame(self.window)
+        self.buttons_frame.pack(fill="x", padx=20, pady=10)
 
-        ttk.Button(btn_frame, text="❌ Отмена",
-                   command=self.cancel_calibration).pack(side="left", padx=5)
+        self.cancel_button = ttk.Button(self.buttons_frame, text="❌ Отмена",
+                                        command=self.cancel_calibration)
+        self.cancel_button.pack(side="left", padx=5)
 
-        self.save_btn = ttk.Button(btn_frame, text="💾 Сохранить",
-                                   command=self.save_calibration, state="disabled")
-        self.save_btn.pack(side="left", padx=5)
+        self.save_button = ttk.Button(self.buttons_frame, text="💾 Сохранить",
+                                      command=self.save_calibration, state="disabled")
+        self.save_button.pack(side="right", padx=5)
 
-        # Кнопка принудительного сохранения
-        self.force_save_btn = ttk.Button(btn_frame, text="🚀 Сохранить сейчас",
-                                         command=self.force_save, state="normal")
-        self.force_save_btn.pack(side="left", padx=5)
-
-        self.update_step_display()
-
-    def start_keyboard_listener(self):
-        """Запускает отслеживание горячих клавиш"""
+    def setup_listener(self):
+        """Настраивает слушатель горячих клавиш"""
+        from pynput import keyboard
 
         def on_press(key):
             try:
-                if key == keyboard.Key.f1 and self.current_step == 0:
-                    self.capture_position("F1")
-                elif key == keyboard.Key.f2 and self.current_step == 1:
-                    self.capture_position("F2")
-                elif key == keyboard.Key.f3 and self.current_step == 2:
-                    self.capture_position("F3")
-                elif key == keyboard.Key.f4 and self.current_step == 3:
-                    self.capture_position("F4")
-            except:
-                pass
+                if hasattr(key, 'char') and key.char in ['1', '2', '3', '4']:
+                    # Игнорируем цифры на основной клавиатуре
+                    return
 
-        self.keyboard_listener = keyboard.Listener(on_press=on_press)
-        self.keyboard_listener.daemon = True
-        self.keyboard_listener.start()
+                if key == keyboard.Key.f1:
+                    self.capture_position('currency_position', "валюты (F1)")
+                elif key == keyboard.Key.f2:
+                    self.capture_position('item_position', "предмета (F2)")
+                elif key == keyboard.Key.f3:
+                    self.capture_position('scan_region_start', "начала области модов (F3)")
+                elif key == keyboard.Key.f4:
+                    self.capture_position('scan_region_end', "конца области модов (F4)")
 
-    def capture_position(self, key_pressed):
-        """Захватывает текущую позицию мыши по горячей клавише"""
-        x, y = pyautogui.position()
+            except Exception as e:
+                print(f"Ошибка в слушателе: {e}")
 
-        # Находим текущий шаг по нажатой клавише
-        for i, step in enumerate(self.steps):
-            if step["key"] == key_pressed and i == self.current_step:
-                self.positions[step["config_key"]] = (x, y)
+        self.listener = keyboard.Listener(on_press=on_press)
+        self.listener.daemon = True
+        self.listener.start()
 
-                # Добавляем визуальную обратную связь
-                self.show_capture_feedback(x, y, step["name"])
+        self.update_progress("🎯 Готов к калибровке! Используйте F1-F4")
 
-                # АВТОСОХРАНЕНИЕ после каждого шага
-                self.auto_save_config()
-
-                # Переходим к следующему шагу
-                self.current_step += 1
-                self.update_step_display()
-                break
-
-    def show_capture_feedback(self, x, y, step_name):
-        """Показывает подтверждение захвата"""
-        feedback_text = f"✅ {step_name}: ({x}, {y})"
-
-        self.preview_text.insert(tk.END, feedback_text + "\n")
-        self.preview_text.see(tk.END)
-
-        # Мигание для обратной связи
-        self.coord_label.config(text=f"✅ ЗАХВАЧЕНО: ({x}, {y})", foreground="green")
-        self.window.after(1000, lambda: self.coord_label.config(foreground="black"))
-
-    def auto_save_config(self):
-        """Автоматически сохраняет конфиг после каждого шага"""
+    def capture_position(self, position_type, description):
+        """Захватывает текущую позицию мыши"""
         try:
-            temp_config = self.prepare_config()
-
-            # СОХРАНЯЕМ В ОСНОВНОЙ КОНФИГ, А НЕ ВО ВРЕМЕННЫЙ!
-            with open('config.json', 'w') as f:  # ИЗМЕНИТЕ config_temp.json на config.json
-                json.dump(temp_config, f, indent=4)
-
-            # Логируем в основной лог
-            self.log_calibration_step(temp_config)
-
-            print(f"💾 Автосохранение в config.json: {len(self.positions)}/4 позиций")
-
-        except Exception as e:
-            print(f"⚠️ Ошибка автосохранения: {e}")
-
-    def log_calibration_step(self, config):
-        """Логирует шаг калибровки в основной лог"""
-        try:
-            log_entry = {
-                'timestamp': datetime.now().isoformat(),
-                'event': 'calibration_step',
-                'step': self.current_step,
-                'positions_captured': len(self.positions),
-                'config_preview': {
-                    'currency_position': config.get('currency_position'),
-                    'item_position': config.get('item_position'),
-                    'scan_region': config.get('scan_region', 'Неполный'),
-                    'target_mods': config.get('target_mods', [])
-                }
-            }
-
-            # Записываем в лог-файл
-            with open('calibration_log.json', 'a', encoding='utf-8') as f:
-                f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
-
-            # Также выводим в консоль
-            print(f"📝 Лог: шаг {self.current_step}, позиций: {len(self.positions)}")
-
-        except Exception as e:
-            print(f"⚠️ Ошибка логирования: {e}")
-
-    def prepare_config(self):
-        """Подготавливает конфиг для сохранения"""
-        config = self.positions.copy()
-
-        # Формируем область сканирования если есть обе точки
-        if 'scan_start' in config and 'scan_end' in config:
-            x1, y1 = config['scan_start']
-            x2, y2 = config['scan_end']
-            config['scan_region'] = (
-                min(x1, x2), min(y1, y2),
-                abs(x2 - x1), abs(y2 - y1)
-            )
-            # УДАЛЯЕМ ВРЕМЕННЫЕ КЛЮЧИ
-            del config['scan_start']
-            del config['scan_end']
-
-        # Добавляем настройки по умололчанию
-        config['target_mods'] = ["increased", "damage", "critical", "speed"]
-        config['max_attempts'] = 200
-        config['min_delay'] = 0.5
-        config['max_delay'] = 2.0
-        config['calibration_time'] = datetime.now().isoformat()
-
-        return config
-
-    def update_step_display(self):
-        """Обновляет отображение текущего шага"""
-        if self.current_step < len(self.steps):
-            current_step_info = self.steps[self.current_step]
-            step_text = f"{current_step_info['name']}\nНажмите {current_step_info['key']} для захвата позиции"
-            self.step_label.config(text=step_text)
-
-            # Обновляем прогресс
-            self.progress_bar['value'] = self.current_step
-            self.progress_label.config(text=f"Шаг {self.current_step + 1} из {len(self.steps)}")
-
-        else:
-            # Все шаги завершены
-            self.step_label.config(text="✅ Все позиции захвачены!\nМожно сохранять конфигурацию.")
-            self.progress_bar['value'] = len(self.steps)
-            self.progress_label.config(text="Готово!")
-
-            # ВКЛЮЧАЕМ КНОПКУ СОХРАНЕНИЯ ТОЛЬКО ЕСЛИ ВСЕ 4 ПОЗИЦИИ ЗАХВАЧЕНЫ
-            required_keys = ['currency_position', 'item_position', 'scan_start', 'scan_end']
-            if all(key in self.positions for key in required_keys):
-                self.save_btn.config(state="normal")
-            else:
-                self.step_label.config(text="❌ Не все позиции захвачены!\nПроверьте F1-F4")
-
-    def update_coordinates(self):
-        """Обновляет координаты мыши в реальном времени"""
-        try:
+            import pyautogui
             x, y = pyautogui.position()
-            self.coord_label.config(text=f"X: {x}, Y: {y}")
-        except:
-            pass
 
-        # Продолжаем обновление если окно открыто
-        if self.window.winfo_exists():
-            self.window.after(100, self.update_coordinates)
+            # Подтверждаем захват позиции
+            if self.confirm_position(description, x, y):
+                self.calibration_data[position_type] = (x, y)
+                self.positions_captured += 1
 
-    def force_save(self):
-        """Принудительное сохранение текущего состояния"""
-        try:
-            config = self.prepare_config()
+                # Обновляем прогресс
+                self.progress_bar['value'] = self.positions_captured
+                self.update_positions_display()
 
-            # ПРОВЕРЯЕМ ЧТО ВСЕ ОСНОВНЫЕ ПОЗИЦИИ ЕСТЬ
-            required_positions = ['currency_position', 'item_position']
-            missing_positions = [pos for pos in required_positions if pos not in config]
-
-            if missing_positions:
-                messagebox.showwarning("Внимание",
-                                       f"Отсутствуют позиции: {', '.join(missing_positions)}\n"
-                                       f"Конфиг может быть неполным.")
-
-            # Сохраняем основной конфиг
-            with open('config.json', 'w') as f:
-                json.dump(config, f, indent=4)
-
-            # ОБНОВЛЯЕМ ОСНОВНОЙ GUI
-            if hasattr(self.parent_gui, 'load_config'):
-                self.parent_gui.load_config()
-                self.parent_gui.log_message("✅ Конфиг сохранен принудительно")
-
-            messagebox.showinfo("Успех",
-                                f"Конфиг сохранен принудительно!\n"
-                                f"Захвачено позиций: {len(self.positions)}/4\n"
-                                f"Файл: config.json")
-
-            print("💾 Принудительное сохранение выполнено")
+                # Проверяем завершение калибровки
+                if self.positions_captured >= 4:
+                    self.finalize_calibration()
+                else:
+                    next_step = self.get_next_step()
+                    self.update_progress(f"✅ Захвачено: {description}\n➡️ Следующий шаг: {next_step}")
 
         except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось сохранить: {e}")
+            messagebox.showerror("Ошибка", f"Не удалось захватить позицию: {e}")
+
+    def confirm_position(self, description, x, y):
+        """Подтверждает захват позиции"""
+        result = messagebox.askyesno(
+            "Подтверждение позиции",
+            f"Захватить позицию {description}?\nКоординаты: ({x}, {y})\n\n"
+            f"Убедитесь что курсор находится над нужным объектом в PoE."
+        )
+        return result
+
+    def get_next_step(self):
+        """Возвращает следующий шаг калибровки"""
+        steps = {
+            0: "F1 - позиция валюты",
+            1: "F2 - позиция предмета",
+            2: "F3 - начало области модов",
+            3: "F4 - конец области модов"
+        }
+        return steps.get(self.positions_captured, "Завершено")
+
+    def update_progress(self, message):
+        """Обновляет текст прогресса"""
+        self.progress_label.config(text=message)
+
+    def update_positions_display(self):
+        """Обновляет отображение захваченных позиций"""
+        self.positions_text.config(state="normal")
+        self.positions_text.delete("1.0", "end")
+
+        positions_info = "📋 ЗАХВАЧЕННЫЕ ПОЗИЦИИ:\n\n"
+
+        for pos_type, coords in self.calibration_data.items():
+            if pos_type == 'currency_position':
+                positions_info += f"💰 Валюты: {coords}\n"
+            elif pos_type == 'item_position':
+                positions_info += f"🎒 Предмета: {coords}\n"
+            elif pos_type == 'scan_region_start':
+                positions_info += f"📏 Начало области: {coords}\n"
+            elif pos_type == 'scan_region_end':
+                positions_info += f"📏 Конец области: {coords}\n"
+
+        positions_info += f"\n🎯 Прогресс: {self.positions_captured}/4"
+
+        self.positions_text.insert("1.0", positions_info)
+        self.positions_text.config(state="disabled")
+
+    def finalize_calibration(self):
+        """Завершает калибровку и вычисляет регион сканирования"""
+        try:
+            # Вычисляем регион сканирования из начальной и конечной точек
+            if 'scan_region_start' in self.calibration_data and 'scan_region_end' in self.calibration_data:
+                x1, y1 = self.calibration_data['scan_region_start']
+                x2, y2 = self.calibration_data['scan_region_end']
+
+                # Вычисляем ширину и высоту
+                width = abs(x2 - x1)
+                height = abs(y2 - y1)
+
+                # Берем левый верхний угол
+                x = min(x1, x2)
+                y = min(y1, y2)
+
+                # Сохраняем регион сканирования
+                self.calibration_data['scan_region'] = (x, y, width, height)
+
+                # Удаляем временные данные
+                del self.calibration_data['scan_region_start']
+                del self.calibration_data['scan_region_end']
+
+            self.update_progress("✅ Все позиции захвачены! Сохраняем...")
+            self.save_button.config(state="normal")
+            self.update_positions_display()
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при завершении калибровки: {e}")
 
     def save_calibration(self):
-        """Сохраняет калибровку"""
+        """Сохраняет калибровку в конфиг"""
         try:
-            config = self.prepare_config()
+            # Загружаем существующий конфиг или создаем новый
+            if os.path.exists('config.json'):
+                with open('config.json', 'r') as f:
+                    config = json.load(f)
+            else:
+                config = {}
 
-            print("💾 Сохраняю конфиг в config.json...")
-            print(f"   Валюты: {config.get('currency_position')}")
-            print(f"   Предмет: {config.get('item_position')}")
+            # Обновляем конфиг новыми позициями
+            config.update(self.calibration_data)
 
-            # Сохраняем в ОСНОВНОЙ файл
+            # Сохраняем конфиг
             with open('config.json', 'w') as f:
                 json.dump(config, f, indent=4)
 
-            print("✅ Конфиг сохранен в config.json")
+            # Обновляем родительский конфиг
+            self.parent.current_config = config
 
-            # УБЕРИТЕ удаление временного файла или закомментируйте:
-            # if os.path.exists('config_temp.json'):
-            #     os.remove('config_temp.json')
-
-            # Закрываем окно
-            if self.keyboard_listener:
-                self.keyboard_listener.stop()
-
+            messagebox.showinfo("Успех", "Калибровка сохранена! 🎉")
             self.window.destroy()
 
         except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось сохранить: {e}")
+            messagebox.showerror("Ошибка", f"Не удалось сохранить калибровку: {e}")
 
     def cancel_calibration(self):
         """Отменяет калибровку"""
-        if self.keyboard_listener:
-            self.keyboard_listener.stop()
-        self.window.destroy()
-
-    def save_scan_region(self, x1, y1, x2, y2):
-        """Сохраняет область сканирования модов"""
-        try:
-            # 🔧 ИСПРАВЛЕНИЕ: конвертируем в формат (x, y, width, height)
-            x = min(x1, x2)
-            y = min(y1, y2)
-            width = abs(x2 - x1)
-            height = abs(y2 - y1)
-
-            scan_region = (x, y, width, height)
-
-            print(f"📏 Сохранен регион сканирования: {scan_region}")
-
-            # Обновляем конфиг
-            self.update_config({'scan_region': scan_region})
-            self.parent.log_message(f"📏 Область сканирования: {scan_region}")
-
-            return True
-
-        except Exception as e:
-            print(f"❌ Ошибка сохранения региона: {e}")
-            return False
+        if messagebox.askyesno("Отмена", "Вы уверены что хотите отменить калибровку?"):
+            if self.listener:
+                self.listener.stop()
+            self.window.destroy()

@@ -21,7 +21,7 @@ class SafetyManager:
             'max_session_minutes': 480,  # Увеличили
             'min_action_interval': 0.05,  # 🔧 УМЕНЬШИЛИ до 0.05с
             'max_actions_per_minute': 500,  # Увеличили
-            'emergency_cooldown': 5,  # Уменьшили
+            'emergency_cooldown': 10,  # Уменьшили
         }
 
         # Статистика
@@ -67,11 +67,14 @@ class SafetyManager:
         except:
             pass
 
+    def check_emergency_stop_requested(self):
+        """Проверяет, была ли нажата горячая клавиша остановки"""
+        return self.emergency_stop_requested
+
     def check_all_safety_conditions(self):
-        """Проверяет все условия безопасности с отладкой"""
+        """Проверяет все условия безопасности + горячую клавишу"""
         # Сначала проверяем запрос остановки по F12
         if self.emergency_stop_requested:
-            print("🚨 Безопасность: остановка по F12")
             return False
 
         # Затем стандартные проверки
@@ -87,9 +90,9 @@ class SafetyManager:
                 print(f"🚨 Безопасность: {check_name} - {message}")
                 return False
 
-        print("✅ Все проверки безопасности пройдены")
         return True
 
+    # ... остальные существующие методы без изменений ...
     def check_emergency_stop(self):
         """Проверка аварийной остановки"""
         if self.emergency_stop:
@@ -102,9 +105,6 @@ class SafetyManager:
                 remaining = self.safety_config['emergency_cooldown'] - (time.time() - self.last_action_time)
                 return "Emergency Stop", False, f"Аварийная остановка ({remaining:.0f}с осталось)"
         return "Emergency Stop", True, "OK"
-
-    def check_emergency_stop_requested(self):
-        return self.emergency_stop_requested
 
     def check_consecutive_failures(self):
         """Проверка количества последовательных ошибок"""
@@ -163,7 +163,6 @@ class SafetyManager:
     def trigger_emergency_stop(self, reason="Неизвестная причина"):
         """Аварийная остановка"""
         self.emergency_stop = True
-        self.emergency_stop_requested = True
         print(f"🚨 АВАРИЙНАЯ ОСТАНОВКА: {reason}")
         self.log_emergency_stop(reason)
 

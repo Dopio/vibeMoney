@@ -5,9 +5,21 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="96f96b77-32b3-431b-bdc0-7bfa3995ed14" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/core/bot.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/components/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/components/tabs/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/components/tabs/main_tab.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/components/widgets/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/components/widgets/control_buttons.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/components/widgets/log_display.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/components/widgets/status_panel.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/__init__.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/controller.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/safety.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/safety.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/scanner.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/scanner.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gui/calibration_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/calibration_window.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/main_window.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scanner_original.png" beforeDir="false" afterPath="$PROJECT_DIR$/scanner_original.png" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scanner_processed.png" beforeDir="false" afterPath="$PROJECT_DIR$/scanner_processed.png" afterDir="false" />
@@ -42,15 +54,15 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "main",
-    "settings.editor.selected.configurable": "proofread"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;proofread&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\Stanislav\PycharmProjects\vibeMoney" />

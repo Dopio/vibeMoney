@@ -1,22 +1,34 @@
 import json
 import os
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+from tkinter import ttk, messagebox
 import threading
 import time
+
+# Импортируем наши компоненты
+from .components import MainTab, LogDisplay
+from .components.tabs.settings_tab import SettingsTab
+from .components.tabs.stats_tab import StatsTab
 
 
 class PoeCraftBotGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("PoE Craft Bot v1.0")
-        self.root.geometry("800x600")
+        self.root.title("PoE Craft Bot v2.0")
+        self.root.geometry("900x700")
         self.root.resizable(True, True)
 
         # Состояние бота
         self.bot_running = False
         self.bot_thread = None
-        self.current_config = None  # ДОБАВЬТЕ ЭТО
+        self.current_config = None
+        self.bot = None
+
+        # Компоненты интерфейса
+        self.main_tab = None
+        self.settings_tab = None
+        self.stats_tab = None
+        self.log_display = None
 
         # Создаем интерфейс
         self.create_widgets()
@@ -26,181 +38,42 @@ class PoeCraftBotGUI:
         self.load_config()
 
     def create_widgets(self):
-        """Создает все элементы интерфейса"""
-
+        """Создает все элементы интерфейса с использованием компонентов"""
         # Вкладки
         self.notebook = ttk.Notebook(self.root)
 
-        # Вкладка: Главная
-        self.main_frame = ttk.Frame(self.notebook)
-        self.create_main_tab()
+        # 🔧 ГЛАВНАЯ ВКЛАДКА
+        self.main_tab = MainTab(
+            self.notebook,
+            start_callback=self.start_bot,
+            stop_callback=self.stop_bot,
+            calibrate_callback=self.start_calibration
+        )
+        self.notebook.add(self.main_tab, text="🎮 Главная")
 
-        # Вкладка: Настройки
-        self.settings_frame = ttk.Frame(self.notebook)
-        self.create_settings_tab()
+        # 🔧 ВКЛАДКА НАСТРОЕК
+        self.settings_tab = SettingsTab(
+            self.notebook,
+            save_callback=self.save_settings,
+            load_callback=self.load_settings
+        )
+        self.notebook.add(self.settings_tab, text="⚙️ Настройки")
 
-        # Вкладка: Статистика
-        self.stats_frame = ttk.Frame(self.notebook)
-        self.create_stats_tab()
+        # 🔧 ВКЛАДКА СТАТИСТИКИ
+        self.stats_tab = StatsTab(
+            self.notebook,
+            update_callback=self.update_stats,
+            export_callback=self.export_stats
+        )
+        self.notebook.add(self.stats_tab, text="📊 Статистика")
 
-        # Вкладка: Логи
-        self.logs_frame = ttk.Frame(self.notebook)
-        self.create_logs_tab()
-
-        self.notebook.add(self.main_frame, text="Главная")
-        self.notebook.add(self.settings_frame, text="Настройки")
-        self.notebook.add(self.stats_frame, text="Статистика")
-        self.notebook.add(self.logs_frame, text="Логи")
-
-    def create_main_tab(self):
-        """Создает содержимое главной вкладки"""
-
-        # Заголовок
-        title_label = ttk.Label(self.main_frame,
-                                text="Path of Exile Craft Bot",
-                                font=("Arial", 16, "bold"))
-        title_label.pack(pady=10)
-
-        # Статус бота
-        self.status_frame = ttk.LabelFrame(self.main_frame, text="Статус бота", padding=10)
-        self.status_frame.pack(fill="x", padx=10, pady=5)
-
-        self.status_label = ttk.Label(self.status_frame, text="🛑 Бот остановлен",
-                                      font=("Arial", 12), foreground="red")
-        self.status_label.pack()
-
-        # Прогресс
-        self.progress_frame = ttk.LabelFrame(self.main_frame, text="Прогресс", padding=10)
-        self.progress_frame.pack(fill="x", padx=10, pady=5)
-
-        self.progress_bar = ttk.Progressbar(self.progress_frame, mode='indeterminate')
-        self.progress_bar.pack(fill="x")
-
-        self.progress_text = ttk.Label(self.progress_frame, text="Ожидание запуска...")
-        self.progress_text.pack()
-
-        # Быстрый старт
-        self.quick_start_frame = ttk.LabelFrame(self.main_frame, text="Быстрый старт", padding=10)
-        self.quick_start_frame.pack(fill="x", padx=10, pady=5)
-
-        # Кнопки управления
-        self.buttons_frame = ttk.Frame(self.quick_start_frame)
-        self.buttons_frame.pack(fill="x")
-
-        self.start_button = ttk.Button(self.buttons_frame, text="▶️ Запуск бота",
-                                       command=self.start_bot, style="Accent.TButton")
-        self.start_button.pack(side="left", padx=5)
-
-        self.stop_button = ttk.Button(self.buttons_frame, text="⏹️ Остановить",
-                                      command=self.stop_bot, state="disabled")
-        self.stop_button.pack(side="left", padx=5)
-
-        self.calibrate_button = ttk.Button(self.buttons_frame, text="🎯 Калибровка",
-                                           command=self.start_calibration)
-        self.calibrate_button.pack(side="left", padx=5)
-
-        # Информация о текущих настройках
-        self.info_frame = ttk.LabelFrame(self.main_frame, text="Текущие настройки", padding=10)
-        self.info_frame.pack(fill="x", padx=10, pady=5)
-
-        info_text = """
-Целевые моды: increased, damage, critical, speed
-Максимум попыток: 1000
-Безопасность: ВКЛЮЧЕНА
-        """
-        self.info_label = ttk.Label(self.info_frame, text=info_text, justify="left")
-        self.info_label.pack(anchor="w")
-
-    def create_settings_tab(self):
-        """Создает вкладку настроек"""
-
-        # Настройки крафта
-        craft_frame = ttk.LabelFrame(self.settings_frame, text="Настройки крафта", padding=10)
-        craft_frame.pack(fill="x", padx=10, pady=5)
-
-        # Целевые моды
-        ttk.Label(craft_frame, text="Целевые моды (через запятую):").pack(anchor="w")
-        self.target_mods_entry = ttk.Entry(craft_frame, width=50)
-        self.target_mods_entry.insert(0, "increased, damage, critical, speed, support")
-        self.target_mods_entry.pack(fill="x", pady=5)
-
-        # Максимум попыток
-        attempts_frame = ttk.Frame(craft_frame)
-        attempts_frame.pack(fill="x", pady=5)
-
-        ttk.Label(attempts_frame, text="Максимум попыток:").pack(side="left")
-        self.max_attempts_var = tk.StringVar(value="1000")
-        self.max_attempts_entry = ttk.Entry(attempts_frame, textvariable=self.max_attempts_var, width=10)
-        self.max_attempts_entry.pack(side="left", padx=5)
-
-        # Настройки безопасности
-        safety_frame = ttk.LabelFrame(self.settings_frame, text="Настройки безопасности", padding=10)
-        safety_frame.pack(fill="x", padx=10, pady=5)
-
-        self.safety_enabled = tk.BooleanVar(value=True)
-        ttk.Checkbutton(safety_frame, text="Включить систему безопасности",
-                        variable=self.safety_enabled).pack(anchor="w")
-
-        # Интервалы
-        intervals_frame = ttk.Frame(safety_frame)
-        intervals_frame.pack(fill="x", pady=5)
-
-        ttk.Label(intervals_frame, text="Мин. задержка (сек):").pack(side="left")
-        self.min_delay_var = tk.StringVar(value="0.5")
-        ttk.Entry(intervals_frame, textvariable=self.min_delay_var, width=8).pack(side="left", padx=5)
-
-        ttk.Label(intervals_frame, text="Макс. задержка (сек):").pack(side="left", padx=(20, 0))
-        self.max_delay_var = tk.StringVar(value="2.0")
-        ttk.Entry(intervals_frame, textvariable=self.max_delay_var, width=8).pack(side="left", padx=5)
-
-        # Кнопки сохранения
-        buttons_frame = ttk.Frame(self.settings_frame)
-        buttons_frame.pack(fill="x", padx=10, pady=10)
-
-        ttk.Button(buttons_frame, text="💾 Сохранить настройки",
-                   command=self.save_settings).pack(side="left", padx=5)
-
-        ttk.Button(buttons_frame, text="🔄 Загрузить настройки",
-                   command=self.load_settings).pack(side="left", padx=5)
-
-    def create_stats_tab(self):
-        """Создает вкладку статистики"""
-
-        # Статистика в реальном времени
-        live_stats_frame = ttk.LabelFrame(self.stats_frame, text="Статистика в реальном времени", padding=10)
-        live_stats_frame.pack(fill="x", padx=10, pady=5)
-
-        self.stats_text = scrolledtext.ScrolledText(live_stats_frame, height=10, width=70)
-        self.stats_text.pack(fill="both", expand=True)
-        self.stats_text.insert("1.0", "Статистика появится после запуска бота...")
-        self.stats_text.config(state="disabled")
-
-        # Кнопки управления статистикой
-        stats_buttons_frame = ttk.Frame(live_stats_frame)
-        stats_buttons_frame.pack(fill="x", pady=5)
-
-        ttk.Button(stats_buttons_frame, text="🔄 Обновить",
-                   command=self.update_stats).pack(side="left", padx=5)
-
-        ttk.Button(stats_buttons_frame, text="📊 Экспорт в файл",
-                   command=self.export_stats).pack(side="left", padx=5)
-
-    def create_logs_tab(self):
-        """Создает вкладку логов"""
-
-        self.logs_text = scrolledtext.ScrolledText(self.logs_frame, height=20, width=80)
-        self.logs_text.pack(fill="both", expand=True, padx=10, pady=10)
-        self.logs_text.insert("1.0", "=== Логи PoE Craft Bot ===\n\n")
-
-        # Кнопки управления логами
-        logs_buttons_frame = ttk.Frame(self.logs_frame)
-        logs_buttons_frame.pack(fill="x", padx=10, pady=5)
-
-        ttk.Button(logs_buttons_frame, text="🧹 Очистить логи",
-                   command=self.clear_logs).pack(side="left", padx=5)
-
-        ttk.Button(logs_buttons_frame, text="💾 Сохранить логи",
-                   command=self.save_logs).pack(side="left", padx=5)
+        # 🔧 ВКЛАДКА ЛОГОВ
+        self.log_display = LogDisplay(
+            self.notebook,
+            clear_callback=self.clear_logs,
+            save_callback=self.save_logs
+        )
+        self.notebook.add(self.log_display, text="📝 Логи")
 
     def setup_layout(self):
         """Настраивает layout интерфейса"""
@@ -209,66 +82,60 @@ class PoeCraftBotGUI:
     def load_config(self):
         """Загружает конфигурацию и обновляет GUI"""
         try:
-            import json
-            import os
-
             if os.path.exists('config.json'):
-                with open('config.json', 'r') as f:
+                with open('config.json', 'r', encoding='utf-8') as f:
                     self.current_config = json.load(f)
-                print("✅ Конфиг загружен")
+                self.log_message("✅ Конфиг загружен")
 
-                # ОБНОВЛЯЕМ ПОЛЯ В GUI
+                # Обновляем все компоненты GUI
                 self.update_gui_from_config()
-
                 return True
             else:
-                print("❌ Конфиг не найден")
+                self.log_message("❌ Конфиг не найден")
                 return False
 
         except Exception as e:
-            print(f"❌ Ошибка загрузки конфига: {e}")
+            self.log_message(f"❌ Ошибка загрузки конфига: {e}")
             return False
 
     def update_gui_from_config(self):
-        """Обновляет поля GUI из загруженного конфига"""
+        """Обновляет все компоненты GUI из загруженного конфига"""
         try:
             if self.current_config:
-                # Целевые моды
-                target_mods = self.current_config.get('target_mods', [])
-                if target_mods:
-                    self.target_mods_entry.delete(0, tk.END)
-                    self.target_mods_entry.insert(0, ', '.join(target_mods))
+                # Обновляем главную вкладку
+                info_text = self._generate_config_info()
+                self.main_tab.update_info(info_text)
 
-                # Максимум попыток
-                max_attempts = self.current_config.get('max_attempts', 1000)
-                self.max_attempts_var.set(str(max_attempts))
+                # Обновляем вкладку настроек
+                self.settings_tab.update_from_config(self.current_config)
 
-                # Задержки
-                min_delay = self.current_config.get('min_delay', 0.5)
-                max_delay = self.current_config.get('max_delay', 2.0)
-                self.min_delay_var.set(str(min_delay))
-                self.max_delay_var.set(str(max_delay))
+                # Обновляем статистику
+                self.update_stats()
 
-                print("✅ GUI обновлен из конфига")
+            self.log_message("✅ GUI обновлен из конфига")
 
         except Exception as e:
-            print(f"⚠️ Ошибка обновления GUI: {e}")
+            self.log_message(f"⚠️ Ошибка обновления GUI: {e}")
+
+    def _generate_config_info(self):
+        """Генерирует текст информации о конфиге"""
+        if not self.current_config:
+            return "❌ Конфиг не загружен. Требуется калибровка!"
+
+        return f"""
+🎯 Целевые моды: {', '.join(self.current_config.get('target_mods', []))}
+💰 Позиция валюты: {self.current_config.get('currency_position', 'Не задана')}
+🎒 Позиция предмета: {self.current_config.get('item_position', 'Не задана')}
+📏 Область сканирования: {self.current_config.get('scan_region', 'Не задана')}
+🔢 Максимум попыток: {self.current_config.get('max_attempts', 1000)}
+🛡️ Безопасность: ВКЛЮЧЕНА
+        """
 
     def start_bot(self):
         """Запускает бота в отдельном потоке"""
         if not self.bot_running:
-            # ПРОВЕРЯЕМ НАЛИЧИЕ КОНФИГА
-            if not self.current_config or not self.current_config.get('currency_position'):
-                messagebox.showerror("Ошибка", "Конфиг не загружен или не настроен!\nСначала выполните калибровку.")
-                return
-
-            # ПРОВЕРЯЕМ ОБЯЗАТЕЛЬНЫЕ ПОЛЯ
-            required_fields = ['currency_position', 'item_position', 'scan_region']
-            missing_fields = [field for field in required_fields if not self.current_config.get(field)]
-
-            if missing_fields:
-                messagebox.showerror("Ошибка",
-                                     f"В конфиге отсутствуют поля: {', '.join(missing_fields)}\nВыполните калибровку заново.")
+            # Проверяем наличие конфига
+            if not self._validate_config():
                 return
 
             self.log_message("🔍 Проверка конфига...")
@@ -276,412 +143,232 @@ class PoeCraftBotGUI:
             self.log_message(f"   Предмет: {self.current_config.get('item_position')}")
             self.log_message(f"   Область: {self.current_config.get('scan_region')}")
 
-            # ЗАПУСКАЕМ БОТА
-            self.bot_running = True
-            self.start_button.config(state="disabled")
-            self.stop_button.config(state="normal")
-            self.status_label.config(text="🟢 Бот запущен", foreground="green")
-            self.progress_bar.start()
+            # Создаем экземпляр бота
+            try:
+                from core import PoeCraftBot
+                self.bot = PoeCraftBot()
+            except ImportError as e:
+                self.log_message(f"❌ Ошибка импорта бота: {e}")
+                return
 
-            # Запускаем в отдельном потоке
+            # Обновляем статус через компонент
+            self.main_tab.set_running_state("Запуск бота...")
+
+            # Запускаем бота
+            self.bot_running = True
             self.bot_thread = threading.Thread(target=self.run_bot, daemon=True)
             self.bot_thread.start()
 
             self.log_message("🎮 Бот запущен - начинаем крафт!")
 
-    def force_reload_config(self):
-        """Принудительно перезагружает конфиг из файла"""
-        try:
-            import json
-            import os
-
-            if os.path.exists('config.json'):
-                with open('config.json', 'r') as f:
-                    self.current_config = json.load(f)
-                print("✅ Конфиг принудительно перезагружен")
-
-                # ОБНОВЛЯЕМ ИНФОРМАЦИЮ В GUI
-                self.update_settings_info()
-
-                # ЛОГИРУЕМ НОВЫЕ НАСТРОЙКИ
-                self.log_message("🔄 Конфиг перезагружен из файла")
-                return True
-            else:
-                print("❌ config.json не найден")
-                self.log_message("❌ config.json не найден - требуется калибровка")
-                return False
-
-        except Exception as e:
-            print(f"❌ Ошибка перезагрузки конфига: {e}")
-            self.log_message(f"❌ Ошибка перезагрузки конфига: {e}")
+    def _validate_config(self):
+        """Проверяет валидность конфига"""
+        if not self.current_config or not self.current_config.get('currency_position'):
+            messagebox.showerror("Ошибка", "Конфиг не загружен или не настроен!\nСначала выполните калибровку.")
             return False
 
-    def log_current_settings(self):
-        """Записывает текущие настройки в лог"""
-        try:
-            if self.current_config:
-                settings_text = f"""
-    ⚙️ ТЕКУЩИЕ НАСТРОЙКИ:
-    ├── Валюты: {self.current_config.get('currency_position', 'Не задано')}
-    ├── Предмет: {self.current_config.get('item_position', 'Не задано')}
-    ├── Область сканирования: {self.current_config.get('scan_region', 'Не задано')}
-    ├── Целевые моды: {', '.join(self.current_config.get('target_mods', []))}
-    ├── Макс. попыток: {self.current_config.get('max_attempts', 100)}
-    └── Безопасность: {'ВКЛ' if self.safety_enabled.get() else 'ВЫКЛ'}
-    """
-                self.log_message(settings_text)
-            else:
-                self.log_message("⚠️ Конфиг не загружен! Требуется калибровка.")
+        required_fields = ['currency_position', 'item_position', 'scan_region']
+        missing_fields = [field for field in required_fields if not self.current_config.get(field)]
 
-        except Exception as e:
-            self.log_message(f"⚠️ Ошибка записи настроек: {e}")
+        if missing_fields:
+            messagebox.showerror("Ошибка",
+                               f"В конфиге отсутствуют поля: {', '.join(missing_fields)}\nВыполните калибровку заново.")
+            return False
 
-    def stop_bot(self):
-        """Останавливает бота"""
-        self.bot_running = False
-        self.start_button.config(state="normal")
-        self.stop_button.config(state="disabled")
-        self.status_label.config(text="🛑 Бот остановлен", foreground="red")
-        self.progress_bar.stop()
-
-        # Логируем статистику при остановке
-        self.log_session_stats()
-
-        self.log_message("Бот остановлен")
-
-    def log_session_stats(self):
-        """Записывает реальную статистику сессии"""
-        try:
-            # Здесь можно добавить сбор реальной статистики
-            stats_text = """
-    📊 СТАТИСТИКА СЕССИИ:
-    ├── Режим: Авто-крафт
-    ├── Использовано: Orb of Alteration
-    ├── Статус: Завершено
-    └── Результат: Успех
-    """
-            self.log_message(stats_text)
-        except Exception as e:
-            self.log_message(f"⚠️ Ошибка записи статистики: {e}")
+        return True
 
     def run_bot(self):
-        """Основной цикл бота с улучшенной диагностикой"""
+        """Основной цикл бота"""
         try:
-            from core.controller import CraftController
-            from core.scanner import ItemScanner
-            from core.safety import SafetyManager
+            if self.bot and self.current_config:
+                self.log_message("🎮 Запуск бота...")
+                self.log_message("🎯 F12 для экстренной остановки")
 
-            safety = SafetyManager()
-            scanner = ItemScanner(safety)
-            controller = CraftController(safety)
-            controller.set_scanner(scanner)
+                # Пауза для подготовки
+                time.sleep(2)
 
-            self.root.after(0, self.log_message, "🎮 Запуск бота...")
-            self.root.after(0, self.log_message, "🎯 F12 для остановки")
-            self.root.after(0, self.log_message, "💡 Убедитесь что PoE окно активно!")
-
-            time.sleep(3)  # 🔧 УВЕЛИЧИЛИ паузу для ручной фокусировки
-
-            if self.current_config:
-                currency_pos = self.current_config.get('currency_position')
-                item_pos = self.current_config.get('item_position')
+                # Получаем настройки
                 target_mods = self.current_config.get('target_mods', ['accuracy'])
-                scan_region = self.current_config.get('scan_region')
+                max_attempts = self.current_config.get('max_attempts', 200)
 
-                self.root.after(0, self.log_message, f"💰 Позиция валюты: {currency_pos}")
-                self.root.after(0, self.log_message, f"🎒 Позиция предмета: {item_pos}")
-                self.root.after(0, self.log_message, f"🎯 Целевые моды: {', '.join(target_mods)}")
-                self.root.after(0, self.log_message, f"📏 Регион сканирования: {scan_region}")
+                self.log_message(f"🎯 Целевые моды: {', '.join(target_mods)}")
+                self.log_message(f"🔢 Максимум попыток: {max_attempts}")
 
-                if not currency_pos or not item_pos:
-                    self.root.after(0, self.log_message, "❌ Ошибка: не настроены позиции")
-                    self.root.after(0, self.stop_bot)
-                    return
+                # Обновляем прогресс
+                self.main_tab.set_progress_text(f"Крафт... 0/{max_attempts}")
 
-                if not scan_region:
-                    self.root.after(0, self.log_message, "❌ Ошибка: не настроен регион сканирования")
-                    self.root.after(0, self.stop_bot)
-                    return
-
-                controller.set_scan_region(scan_region)
-
-                # 🔧 УПРОЩЕННАЯ ДИАГНОСТИКА
-                self.root.after(0, self.log_message, "🔍 Тестовое сканирование...")
-                test_mods = scanner.scan_item(scan_region)
-                self.root.after(0, self.log_message, f"🧪 Найдено модов: {len(test_mods)}")
-
-                if test_mods:
-                    for i, mod in enumerate(test_mods, 1):
-                        self.root.after(0, self.log_message, f"   {i}. {mod}")
-
-                # 🔧 ЗАПУСКАЕМ КРАФТ
-                self.root.after(0, self.log_message, "🚀 Запуск цикла крафта...")
-
-                success = controller._use_currency_cycle(
-                    currency_pos=currency_pos,
-                    item_pos=item_pos,
-                    max_attempts=500,
+                # Запускаем крафт
+                success = self.bot.start_crafting(
+                    max_attempts=max_attempts,
                     target_mods=target_mods
                 )
 
+                # Обработка результата
                 if success:
-                    self.root.after(0, self.log_message, "🎉 КРАФТ УСПЕШЕН!")
+                    self.log_message("🎉 КРАФТ УСПЕШЕН! Найден нужный мод!")
                 else:
-                    # 🔧 ИСПРАВЛЕНИЕ: правильная проверка F12
-                    if hasattr(safety, 'emergency_stop_requested') and safety.emergency_stop_requested:
-                        self.root.after(0, self.log_message, "🚨 ОСТАНОВЛЕНО ПО F12")
+                    if self.bot.safety and self.bot.safety.check_emergency_stop_requested():
+                        self.log_message("🚨 ОСТАНОВЛЕНО ПО F12")
                     else:
-                        self.root.after(0, self.log_message, "❌ Мод не найден")
+                        self.log_message("❌ Целевой мод не найден")
 
             else:
-                self.root.after(0, self.log_message, "❌ Конфиг не загружен")
-
-            self.root.after(0, self.stop_bot)
+                self.log_message("❌ Ошибка: бот не инициализирован")
 
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
-            print(f"❌ Ошибка: {e}")
-            print(f"📋 Детали: {error_details}")
-            self.root.after(0, self.log_message, f"❌ Ошибка: {e}")
+            self.log_message(f"❌ Критическая ошибка: {e}")
+            self.log_message(f"📋 Детали: {error_details}")
+
+        finally:
+            # Всегда останавливаем бота
             self.root.after(0, self.stop_bot)
+
+    def stop_bot(self):
+        """Останавливает бота"""
+        self.bot_running = False
+
+        # Останавливаем бота
+        if self.bot:
+            self.bot.stop_crafting()
+
+        # Обновляем статус через компонент
+        self.main_tab.set_stopped_state("Бот остановлен")
+
+        self.log_message("🛑 Бот остановлен")
+        self.update_stats()
 
     def start_calibration(self):
         """Запускает графическую калибровку"""
         try:
-            # Проверяем наличие pynput
-            try:
-                from pynput import keyboard
-                from gui.calibration_window import CalibrationWindow
+            from .calibration_window import CalibrationWindow
+            cal_window = CalibrationWindow(self)
+            self.root.wait_window(cal_window.window)
 
-                # Запускаем графическую калибровку и ЖДЕМ завершения
-                cal_window = CalibrationWindow(self)
-                # Ждем пока окно калибровки закроется
-                self.root.wait_window(cal_window.window)
-
-                # ПОСЛЕ ЗАКРЫТИЯ КАЛИБРОВКИ - ОБНОВЛЯЕМ GUI
-                self.force_config_reload()
-                self.update_settings_info()
-                self.log_message("✅ Калибровка завершена - настройки обновлены")
-
-            except ImportError:
-                # Fallback на консольную калибровку если pynput не установлен
-                self.run_calibration_thread()
+            # Перезагружаем конфиг после калибровки
+            self.force_config_reload()
+            self.update_gui_from_config()
+            self.log_message("✅ Калибровка завершена - настройки обновлены")
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось запустить калибровку: {e}")
             self.log_message(f"❌ Ошибка калибровки: {e}")
 
-    def force_config_reload(self):
-        """Принудительно перезагружает конфиг из файла"""
-        try:
-            import json
-            import os
-
-            if os.path.exists('config.json'):
-                with open('config.json', 'r') as f:
-                    self.current_config = json.load(f)
-                print("✅ Конфиг перезагружен из файла")
-                print(f"   Валюты: {self.current_config.get('currency_position')}")
-                return True
-            else:
-                print("❌ config.json не найден")
-                return False
-
-        except Exception as e:
-            print(f"❌ Ошибка перезагрузки конфига: {e}")
-            return False
-
-    def show_calibration_logs(self):
-        """Показывает логи калибровки"""
-        try:
-            if os.path.exists('calibration_log.json'):
-                with open('calibration_log.json', 'r', encoding='utf-8') as f:
-                    logs = f.readlines()
-
-                log_text = "=== ЛОГИ КАЛИБРОВКИ ===\n\n"
-                for log_line in logs[-10:]:  # Последние 10 записей
-                    log_data = json.loads(log_line)
-                    log_text += f"[{log_data['timestamp']}] {log_data['event']}\n"
-                    if 'positions_captured' in log_data:
-                        log_text += f"Позиций: {log_data['positions_captured']}/4\n"
-                    log_text += "\n"
-
-                # Показываем в отдельном окне
-                log_window = tk.Toplevel(self.root)
-                log_window.title("Логи калибровки")
-                log_window.geometry("500x400")
-
-                text_widget = scrolledtext.ScrolledText(log_window, wrap=tk.WORD)
-                text_widget.pack(fill="both", expand=True, padx=10, pady=10)
-                text_widget.insert("1.0", log_text)
-                text_widget.config(state="disabled")
-
-            else:
-                messagebox.showinfo("Логи", "Логи калибровки не найдены")
-
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось прочитать логи: {e}")
-
-    def run_calibration_thread(self):
-        """Запускает консольную калибровку в отдельном потоке"""
-        calibration_thread = threading.Thread(target=self.run_calibration, daemon=True)
-        calibration_thread.start()
-        self.log_message("Запущена консольная калибровка")
-
-    def update_progress(self, text):
-        """Обновляет текст прогресса"""
-        self.progress_text.config(text=text)
-
-    def update_settings_info(self):
-        """Обновляет информацию о текущих настройках в GUI"""
-        try:
-            # ПЕРЕЗАГРУЖАЕМ КОНФИГ ПЕРЕД ОТОБРАЖЕНИЕМ
-            self.force_config_reload()
-
-            if self.current_config:
-                info_text = f"""
-    Целевые моды: {', '.join(self.current_config.get('target_mods', []))}
-    Позиция валюты: {self.current_config.get('currency_position', 'Не задана')}
-    Позиция предмета: {self.current_config.get('item_position', 'Не задана')}
-    Область сканирования: {self.current_config.get('scan_region', 'Не задана')}
-    Максимум попыток: {self.current_config.get('max_attempts', 1000)}
-    Безопасность: {'ВКЛЮЧЕНА' if self.safety_enabled.get() else 'ВЫКЛЮЧЕНА'}
-                """
-            else:
-                info_text = "❌ Конфиг не загружен. Требуется калибровка!"
-
-            self.info_label.config(text=info_text)
-            print("✅ GUI обновлен с актуальными настройками")
-
-        except Exception as e:
-            print(f"⚠️ Ошибка обновления GUI: {e}")
-
-    def log_message(self, message):
-        """Добавляет сообщение в логи с поддержкой многострочного текста"""
-        timestamp = time.strftime("%H:%M:%S")
-
-        # Разделяем многострочные сообщения
-        lines = message.strip().split('\n')
-
-        self.logs_text.config(state="normal")
-
-        for i, line in enumerate(lines):
-            if line.strip():  # Пропускаем пустые строки
-                if i == 0:  # Первая строка с временем
-                    log_entry = f"[{timestamp}] {line}\n"
-                else:  # Последующие строки без времени
-                    log_entry = f"          {line}\n"
-                self.logs_text.insert("end", log_entry)
-
-        self.logs_text.see("end")
-        self.logs_text.config(state="disabled")
-
-    def update_stats(self):
-        """Обновляет статистику"""
-        stats_text = """
-📊 СТАТИСТИКА КРАФТА:
-├── Попыток: 156
-├── Успешных: 12
-├── Процент успеха: 7.69%
-├── Среднее модов: 3.2
-├── Orb of Alteration: 156
-├── Orb of Augmentation: 45
-└── Время работы: 0:25:34
-
-🎯 ЦЕЛЕВЫЕ МОДЫ:
-├── increased damage: 8 раз
-├── critical strike: 3 раза  
-└── attack speed: 1 раз
-        """
-
-        self.stats_text.config(state="normal")
-        self.stats_text.delete("1.0", "end")
-        self.stats_text.insert("1.0", stats_text)
-        self.stats_text.config(state="disabled")
-
-    def export_stats(self):
-        """Экспортирует статистику"""
-        messagebox.showinfo("Экспорт", "Статистика экспортирована в stats.json")
-
-    def clear_logs(self):
-        """Очищает логи"""
-        self.logs_text.config(state="normal")
-        self.logs_text.delete("1.0", "end")
-        self.logs_text.insert("1.0", "=== Логи очищены ===\n\n")
-        self.logs_text.config(state="disabled")
-
-    def save_logs(self):
-        """Сохраняет логи в файл"""
-        messagebox.showinfo("Сохранение", "Логи сохранены в craft_bot.log")
-
     def save_settings(self):
-        """Сохраняет настройки и логирует их"""
+        """Сохраняет настройки из GUI в конфиг"""
         try:
-            # СОБИРАЕМ НАСТРОЙКИ ИЗ GUI
-            target_mods_text = self.target_mods_entry.get()
-            target_mods = [mod.strip() for mod in target_mods_text.split(',')]
+            # Получаем настройки из компонента настроек
+            settings_data = self.settings_tab.get_settings()
 
-            max_attempts = self.max_attempts_var.get()
-            min_delay = self.min_delay_var.get()
-            max_delay = self.max_delay_var.get()
-            safety_enabled = self.safety_enabled.get()
-
-            print("💾 Сохраняем настройки из GUI:")
-            print(f"   Целевые моды: {target_mods}")
-            print(f"   Макс. попыток: {max_attempts}")
-            print(f"   Задержки: {min_delay}-{max_delay}сек")
-            print(f"   Безопасность: {safety_enabled}")
-
-            # ОБНОВЛЯЕМ ТЕКУЩИЙ КОНФИГ
+            # Обновляем текущий конфиг
             if self.current_config is None:
                 self.current_config = {}
 
-            self.current_config['target_mods'] = target_mods
-            self.current_config['max_attempts'] = int(max_attempts)
-            self.current_config['min_delay'] = float(min_delay)
-            self.current_config['max_delay'] = float(max_delay)
+            self.current_config.update(settings_data)
 
-            # СОХРАНЯЕМ В ФАЙЛ
-            import json
-            with open('config.json', 'w') as f:
+            # Сохраняем в файл
+            with open('config.json', 'w', encoding='utf-8') as f:
                 json.dump(self.current_config, f, indent=4)
 
-            messagebox.showinfo("Сохранение", "Настройки сохранены!")
+            messagebox.showinfo("Сохранение", "Настройки сохранены! ✅")
+            self.log_message("💾 Настройки сохранены в config.json")
 
-            # ЛОГИРУЕМ НОВЫЕ НАСТРОЙКИ
-            settings_text = f"""
-    💾 СОХРАНЕНЫ НОВЫЕ НАСТРОЙКИ:
-    ├── Целевые моды: {target_mods_text}
-    ├── Макс. попыток: {max_attempts}
-    ├── Мин. задержка: {min_delay}с
-    ├── Макс. задержка: {max_delay}с
-    └── Безопасность: {'ВКЛ' if safety_enabled else 'ВЫКЛ'}
-    """
-            self.log_message(settings_text)
+            # Обновляем GUI
+            self.update_gui_from_config()
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось сохранить настройки: {e}")
             self.log_message(f"❌ Ошибка сохранения настроек: {e}")
 
     def load_settings(self):
-        """Загружает настройки"""
-        messagebox.showinfo("Загрузка", "Настройки загружены!")
-        self.log_message("Настройки загружены")
+        """Загружает настройки из файла"""
+        if self.load_config():
+            messagebox.showinfo("Загрузка", "Настройки загружены! ✅")
+            self.log_message("🔄 Настройки загружены из config.json")
+        else:
+            messagebox.showerror("Ошибка", "Не удалось загрузить настройки!")
 
+    def update_stats(self):
+        """Обновляет статистику"""
+        try:
+            stats_text = "📊 Статистика появится после запуска бота..."
 
-def main():
-    """Запуск GUI"""
-    root = tk.Tk()
+            if self.bot:
+                stats = self.bot.get_stats()
+                stats_text = self._generate_stats_text(stats)
 
-    # Стиль для темной темы (опционально)
-    style = ttk.Style()
-    style.theme_use('clam')
+            self.stats_tab.update_stats(stats_text)
 
-    app = PoeCraftBotGUI(root)
-    root.mainloop()
+        except Exception as e:
+            self.log_message(f"⚠️ Ошибка обновления статистики: {e}")
 
+    def _generate_stats_text(self, stats):
+        """Генерирует текст статистики"""
+        bot_stats = stats.get('bot', {})
+        controller_stats = stats.get('controller', {})
+        scanner_stats = stats.get('scanner', {})
 
-# ИЗМЕНИТЕ ЭТУ ЧАСТЬ - уберите авто-запуск или оставьте для тестов
-if __name__ == "__main__":
-    main()
+        return f"""
+🤖 СТАТИСТИКА БОТА:
+├── Состояние: {'🟢 Запущен' if bot_stats.get('running') else '🛑 Остановлен'}
+├── Конфиг: {'✅ Загружен' if bot_stats.get('config_loaded') else '❌ Отсутствует'}
+└── Действий: {controller_stats.get('total_actions', 0)}
+
+🎯 КОНТРОЛЛЕР:
+├── Всего действий: {controller_stats.get('total_actions', 0)}
+├── Shift: {'Зажат' if controller_stats.get('shift_held') else 'Отпущен'}
+└── Статус: {controller_stats.get('status', 'unknown')}
+
+🔍 СКАНЕР:
+├── Всего сканирований: {scanner_stats.get('total_scans', 0)}
+└── Статус: {scanner_stats.get('status', 'unknown')}
+        """
+
+    def export_stats(self):
+        """Экспортирует статистику"""
+        try:
+            if self.bot:
+                stats = self.bot.get_stats()
+                with open('stats.json', 'w', encoding='utf-8') as f:
+                    json.dump(stats, f, indent=2, ensure_ascii=False)
+
+                messagebox.showinfo("Экспорт", "Статистика экспортирована в stats.json ✅")
+                self.log_message("📊 Статистика экспортирована в stats.json")
+            else:
+                messagebox.showwarning("Экспорт", "Нет данных для экспорта")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось экспортировать статистику: {e}")
+
+    def clear_logs(self):
+        """Очищает логи"""
+        self.log_display.clear_logs()
+        self.log_message("🧹 Логи очищены")
+
+    def save_logs(self):
+        """Сохраняет логи в файл"""
+        try:
+            self.log_display.save_logs()
+            self.log_message("💾 Логи сохранены в craft_bot.log")
+        except Exception as e:
+            self.log_message(f"❌ Ошибка сохранения логов: {e}")
+
+    def force_config_reload(self):
+        """Принудительно перезагружает конфиг из файла"""
+        try:
+            if os.path.exists('config.json'):
+                with open('config.json', 'r', encoding='utf-8') as f:
+                    self.current_config = json.load(f)
+                self.log_message("🔄 Конфиг перезагружен из файла")
+                return True
+            else:
+                self.log_message("❌ config.json не найден")
+                return False
+        except Exception as e:
+            self.log_message(f"❌ Ошибка перезагрузки конфига: {e}")
+            return False
+
+    def log_message(self, message):
+        """Добавляет сообщение в логи через компонент"""
+        self.log_display.add_message(message)
