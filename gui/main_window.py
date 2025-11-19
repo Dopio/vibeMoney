@@ -417,10 +417,10 @@ class PoeCraftBotGUI:
                 # 🔧 ЗАПУСКАЕМ КРАФТ
                 self.root.after(0, self.log_message, "🚀 Запуск цикла крафта...")
 
-                success = controller.use_currency(
+                success = controller._use_currency_cycle(
                     currency_pos=currency_pos,
                     item_pos=item_pos,
-                    max_attempts=20,
+                    max_attempts=500,
                     target_mods=target_mods
                 )
 

@@ -21,7 +21,7 @@ class SafetyManager:
             'max_session_minutes': 480,  # Увеличили
             'min_action_interval': 0.05,  # 🔧 УМЕНЬШИЛИ до 0.05с
             'max_actions_per_minute': 500,  # Увеличили
-            'emergency_cooldown': 10,  # Уменьшили
+            'emergency_cooldown': 5,  # Уменьшили
         }
 
         # Статистика
