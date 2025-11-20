@@ -11,7 +11,7 @@ from .components.tabs.settings_tab import SettingsTab
 from .components.tabs.stats_tab import StatsTab
 
 
-class PoeCraftBotGUI:
+class MainWindow:
     def __init__(self, root):
         self.root = root
         self.root.title("PoE Craft Bot v2.0")
@@ -86,16 +86,15 @@ class PoeCraftBotGUI:
                 with open('config.json', 'r', encoding='utf-8') as f:
                     self.current_config = json.load(f)
                 self.log_message("✅ Конфиг загружен")
-
-                # Обновляем все компоненты GUI
-                self.update_gui_from_config()
                 return True
             else:
                 self.log_message("❌ Конфиг не найден")
+                self.current_config = {}  # Инициализируем пустым словарем
                 return False
 
         except Exception as e:
             self.log_message(f"❌ Ошибка загрузки конфига: {e}")
+            self.current_config = {}  # Инициализируем пустым словарем
             return False
 
     def update_gui_from_config(self):
@@ -145,10 +144,19 @@ class PoeCraftBotGUI:
 
             # Создаем экземпляр бота
             try:
-                from core import PoeCraftBot
-                self.bot = PoeCraftBot()
+                from core.bot import PoeCraftBot
+                self.bot = PoeCraftBot()  # Создаем без параметров
+
+                # Инициализируем бота с конфигом
+                if not self.bot.initialize(self.current_config):
+                    self.log_message("❌ Не удалось инициализировать бота")
+                    return
+
             except ImportError as e:
                 self.log_message(f"❌ Ошибка импорта бота: {e}")
+                return
+            except Exception as e:
+                self.log_message(f"❌ Ошибка инициализации бота: {e}")
                 return
 
             # Обновляем статус через компонент
@@ -163,18 +171,21 @@ class PoeCraftBotGUI:
 
     def _validate_config(self):
         """Проверяет валидность конфига"""
-        if not self.current_config or not self.current_config.get('currency_position'):
-            messagebox.showerror("Ошибка", "Конфиг не загружен или не настроен!\nСначала выполните калибровку.")
+        if not self.current_config:
+            self.log_message("❌ Конфиг не загружен!")
+            messagebox.showerror("Ошибка", "Конфиг не загружен!\nСначала выполните калибровку.")
             return False
 
         required_fields = ['currency_position', 'item_position', 'scan_region']
         missing_fields = [field for field in required_fields if not self.current_config.get(field)]
 
         if missing_fields:
+            self.log_message(f"❌ Отсутствуют поля: {missing_fields}")
             messagebox.showerror("Ошибка",
-                               f"В конфиге отсутствуют поля: {', '.join(missing_fields)}\nВыполните калибровку заново.")
+                                 f"В конфиге отсутствуют поля: {', '.join(missing_fields)}\nВыполните калибровку заново.")
             return False
 
+        self.log_message("✅ Конфиг валиден")
         return True
 
     def run_bot(self):
@@ -197,7 +208,7 @@ class PoeCraftBotGUI:
                 # Обновляем прогресс
                 self.main_tab.set_progress_text(f"Крафт... 0/{max_attempts}")
 
-                # Запускаем крафт
+                # Запускаем крафт - передаем параметры в start_crafting
                 success = self.bot.start_crafting(
                     max_attempts=max_attempts,
                     target_mods=target_mods

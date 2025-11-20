@@ -1,87 +1,84 @@
 import tkinter as tk
-from tkinter import ttk, scrolledtext
-import time
+from tkinter import ttk, scrolledtext, filedialog
+import datetime
 
 
-class LogDisplay(ttk.LabelFrame):
-    """Отображение логов"""
-
-    def __init__(self, parent, title="Логи"):
-        super().__init__(parent, text=title, padding=10)
-        self.parent = parent
+class LogDisplay(ttk.Frame):
+    def __init__(self, parent, clear_callback=None, save_callback=None):
+        super().__init__(parent)
+        self.clear_callback = clear_callback
+        self.save_callback = save_callback
 
         self.create_widgets()
 
     def create_widgets(self):
-        """Создает элементы отображения логов"""
-        # Текстовое поле для логов
-        self.logs_text = scrolledtext.ScrolledText(
-            self,
-            height=15,
+        """Создает элементы интерфейса логов"""
+        main_frame = ttk.Frame(self)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Заголовок
+        title = ttk.Label(main_frame, text="📝 Логи работы бота", font=('Arial', 14, 'bold'))
+        title.pack(pady=(0, 10))
+
+        # Область логов
+        self.log_text = scrolledtext.ScrolledText(
+            main_frame,
+            height=20,
             width=80,
+            font=('Consolas', 9),
             wrap=tk.WORD
         )
-        self.logs_text.pack(fill="both", expand=True)
-        self.logs_text.insert("1.0", "=== Логи PoE Craft Bot ===\n\n")
-        self.logs_text.config(state="disabled")
+        self.log_text.pack(fill="both", expand=True, pady=(0, 10))
 
-        # Панель кнопок управления логами
-        self.buttons_frame = ttk.Frame(self)
-        self.buttons_frame.pack(fill="x", pady=5)
+        # Кнопки управления
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill="x")
 
-        # Кнопка очистки логов
-        self.clear_button = ttk.Button(
-            self.buttons_frame,
-            text="🧹 Очистить логи",
-            command=self.clear_logs
-        )
-        self.clear_button.pack(side="left", padx=5)
+        ttk.Button(button_frame, text="🧹 Очистить",
+                   command=self._on_clear_clicked).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="💾 Сохранить",
+                   command=self._on_save_clicked).pack(side="left", padx=5)
 
-        # Кнопка сохранения логов
-        self.save_button = ttk.Button(
-            self.buttons_frame,
-            text="💾 Сохранить логи",
-            command=self.save_logs
-        )
-        self.save_button.pack(side="left", padx=5)
+        # Начальное сообщение
+        self.add_message("🚀 Логгер инициализирован. Готов к работе!")
+
+    def _on_clear_clicked(self):
+        """Обработчик очистки логов"""
+        if self.clear_callback:
+            self.clear_callback()
+        else:
+            self.clear_logs()
+
+    def _on_save_clicked(self):
+        """Обработчик сохранения логов"""
+        if self.save_callback:
+            self.save_callback()
+        else:
+            self.save_logs()
 
     def add_message(self, message):
         """Добавляет сообщение в логи"""
-        timestamp = time.strftime("%H:%M:%S")
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        log_entry = f"[{timestamp}] {message}\n"
 
-        # Разделяем многострочные сообщения
-        lines = message.strip().split('\n')
-
-        self.logs_text.config(state="normal")
-
-        for i, line in enumerate(lines):
-            if line.strip():  # Пропускаем пустые строки
-                if i == 0:  # Первая строка с временем
-                    log_entry = f"[{timestamp}] {line}\n"
-                else:  # Последующие строки без времени
-                    log_entry = f"          {line}\n"
-                self.logs_text.insert("end", log_entry)
-
-        self.logs_text.see("end")
-        self.logs_text.config(state="disabled")
+        self.log_text.insert(tk.END, log_entry)
+        self.log_text.see(tk.END)  # Автопрокрутка к новому сообщению
 
     def clear_logs(self):
         """Очищает логи"""
-        self.logs_text.config(state="normal")
-        self.logs_text.delete("1.0", "end")
-        self.logs_text.insert("1.0", "=== Логи очищены ===\n\n")
-        self.logs_text.config(state="disabled")
+        self.log_text.delete(1.0, tk.END)
+        self.add_message("🧹 Логи очищены")
 
     def save_logs(self):
         """Сохраняет логи в файл"""
         try:
-            self.logs_text.config(state="normal")
-            log_content = self.logs_text.get("1.0", "end-1c")
-            self.logs_text.config(state="disabled")
-
-            with open('craft_bot.log', 'w', encoding='utf-8') as f:
-                f.write(log_content)
-
-            self.add_message("💾 Логи сохранены в craft_bot.log")
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".log",
+                filetypes=[("Log files", "*.log"), ("All files", "*.*")]
+            )
+            if filename:
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(self.log_text.get(1.0, tk.END))
+                self.add_message(f"💾 Логи сохранены в {filename}")
         except Exception as e:
             self.add_message(f"❌ Ошибка сохранения логов: {e}")

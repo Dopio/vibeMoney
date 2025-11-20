@@ -5,14 +5,14 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from gui.main_window import PoeCraftBotGUI
+    from gui.main_window import MainWindow  # Новое название класса!
     import tkinter as tk
 
     print("🚀 Запуск PoE Craft Bot GUI...")
 
     # Создаем главное окно и приложение
     root = tk.Tk()
-    app = PoeCraftBotGUI(root)
+    app = MainWindow(root)  # Используем новый класс
     root.mainloop()
 
 except ImportError as e:
@@ -24,6 +24,10 @@ except ImportError as e:
         from gui import main_window
 
         print("✅ main_window модуль найден")
+
+        # Проверяем какие классы есть в модуле
+        print(f"📋 Доступные классы: {[x for x in dir(main_window) if not x.startswith('_')]}")
+
     except ImportError as e2:
         print(f"❌ Не удалось импортировать main_window: {e2}")
 
