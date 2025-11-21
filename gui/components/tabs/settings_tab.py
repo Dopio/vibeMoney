@@ -76,7 +76,7 @@ class SettingsTab(ttk.Frame):
         self.target_mods.bind('<Control-v>', self._handle_paste)
         self.target_mods.bind('<Button-3>', self._show_context_menu)  # Правый клик
 
-    def _handle_paste(self, event=None):
+    def _handle_paste(self):
         """Обработчик вставки текста"""
         try:
             # Получаем текст из буфера обмена

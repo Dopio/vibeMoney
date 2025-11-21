@@ -314,7 +314,8 @@ class MainWindow:
         except Exception as e:
             self.log_message(f"⚠️ Ошибка обновления статистики: {e}")
 
-    def _generate_stats_text(self, stats):
+    @classmethod
+    def _generate_stats_text(cls, stats):
         """Генерирует текст статистики"""
         bot_stats = stats.get('bot', {})
         controller_stats = stats.get('controller', {})

@@ -2,13 +2,19 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import json
 import os
-from pynput import mouse
-import threading
-import time
 
 
 class CalibrationWindow:
     def __init__(self, parent):
+        self.save_button = None
+        self.cancel_button = None
+        self.buttons_frame = None
+        self.positions_text = None
+        self.progress_bar = None
+        self.positions_frame = None
+        self.progress_label = None
+        self.progress_frame = None
+        self.window = None
         self.parent = parent
         self.calibration_data = {}
         self.positions_captured = 0
@@ -142,7 +148,8 @@ class CalibrationWindow:
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось захватить позицию: {e}")
 
-    def confirm_position(self, description, x, y):
+    @classmethod
+    def confirm_position(cls, description, x, y):
         """Подтверждает захват позиции"""
         result = messagebox.askyesno(
             "Подтверждение позиции",

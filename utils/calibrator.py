@@ -1,14 +1,15 @@
+from typing import Dict
+
 import pyautogui
 import time
 import json
-from PIL import ImageGrab
 from pynput import keyboard
 from pynput.mouse import Listener as MouseListener
 
 
 class Calibrator:
     def __init__(self):
-        self.positions = {
+        self.positions: Dict[str, any] = {
             'currency': None,  # Orb of Alteration
             'item': None,  # Предмет для крафта
             'scan_region': None  # Область текста модов
@@ -18,13 +19,12 @@ class Calibrator:
             "Наведите курсор на Orb of Alteration и нажмите F1",
             "Наведите курсор на предмет для крафта и нажмите F2",
             "Наведите курсор в ЛЕВЫЙ ВЕРХНИЙ угол области текста модов и нажмите F3",
-            "Наведите курсор в ПРАВЫЙ НИЖНИЙ угол области текска модов и нажмите F4"
+            "Наведите курсор в ПРАВЫЙ НИЖНИЙ угол области текса модов и нажмите F4"
         ]
 
     def start_calibration(self):
         """Запуск процесса калибровки"""
-        print("🎯 Запуск калибровки PoE Craft Bot")
-        print("=" * 50)
+        print("Запуск калибровки PoE Craft Bot")
 
         # Запускаем слушатели клавиатуры и мыши
         keyboard_listener = keyboard.Listener(on_press=self.on_key_press)
@@ -32,8 +32,6 @@ class Calibrator:
 
         keyboard_listener.start()
         mouse_listener.start()
-
-        self.show_current_instruction()
 
         # Ждем завершения калибровки
         while self.current_step < len(self.calibration_steps):
@@ -47,7 +45,7 @@ class Calibrator:
     def on_mouse_move(self, x, y):
         """Отслеживаем движение мыши для отображения координат"""
         if self.current_step < len(self.calibration_steps):
-            print(f"\r📍 Текущие координаты: ({x}, {y})", end="", flush=True)
+            print(f"\r Текущие координаты: ({x}, {y})", end="", flush=True)
 
     def on_key_press(self, key):
         """Обработка нажатий клавиш"""
@@ -58,21 +56,22 @@ class Calibrator:
             if key == keyboard.Key.f1 and self.current_step == 0:
                 self.positions['currency'] = pyautogui.position()
                 print(f"\n✅ Orb of Alteration: {self.positions['currency']}")
-                self.next_step()
+                self.current_step += 1
 
             elif key == keyboard.Key.f2 and self.current_step == 1:
                 self.positions['item'] = pyautogui.position()
                 print(f"✅ Предмет: {self.positions['item']}")
-                self.next_step()
+                self.current_step += 1
 
             elif key == keyboard.Key.f3 and self.current_step == 2:
                 self.positions['scan_region'] = [pyautogui.position(), None]
                 print(f"✅ Левый верхний угол: {self.positions['scan_region'][0]}")
-                self.next_step()
+                self.current_step += 1
 
             elif key == keyboard.Key.f4 and self.current_step == 3:
                 if self.positions['scan_region'][0]:
                     self.positions['scan_region'][1] = pyautogui.position()
+
                     # Преобразуем в формат (x, y, width, height)
                     x1, y1 = self.positions['scan_region'][0]
                     x2, y2 = self.positions['scan_region'][1]
@@ -81,22 +80,10 @@ class Calibrator:
                         abs(x2 - x1), abs(y2 - y1)
                     )
                     print(f"✅ Область сканирования: {self.positions['scan_region']}")
-                    self.next_step()
+                    self.current_step += 1
 
         except Exception as e:
             print(f"\n❌ Ошибка: {e}")
-
-    def next_step(self):
-        """Переход к следующему шагу"""
-        self.current_step += 1
-        if self.current_step < len(self.calibration_steps):
-            self.show_current_instruction()
-        else:
-            print("\n🎉 Калибровка завершена!")
-
-    def show_current_instruction(self):
-        """Показывает текущую инструкцию"""
-        print(f"\n📝 Шаг {self.current_step + 1}: {self.calibration_steps[self.current_step]}")
 
     def save_calibration(self):
         """Сохраняет калибровку в конфиг"""
@@ -115,20 +102,8 @@ class Calibrator:
 
 def main():
     """Главная функция запуска калибровки"""
-    print("🎯 PoE Craft Bot - Calibrator")
-    print("=" * 50)
 
     calibrator = Calibrator()
-
-    print("\nИНСТРУКЦИЯ:")
-    print("1. Откройте Path of Exile в оконном режиме")
-    print("2. Откройте инвентарь (Tab)")
-    print("3. Следуйте инструкциям ниже")
-    print("4. Используйте клавиши F1-F4 для калибровки")
-    print("=" * 50)
-
-    input("Нажмите Enter чтобы начать калибровку...")
-
     calibrator.start_calibration()
 
 

@@ -5,6 +5,7 @@ from tkinter import ttk
 class StatsTab(ttk.Frame):
     def __init__(self, parent, update_callback=None, export_callback=None):
         super().__init__(parent)
+        self.stats_text = None
         self.update_callback = update_callback
         self.export_callback = export_callback
 

@@ -179,7 +179,8 @@ class CraftController:
             self.shift_held = False
             show_message("⇧ Shift отпущен")
 
-    def _move_to_position(self, position, target_name):
+    @classmethod
+    def _move_to_position(cls, position, target_name):
         """Наводим мышь на указанную позицию"""
         x, y = position
         show_message(f"🎯 Наведение на {target_name}: ({x}, {y})")

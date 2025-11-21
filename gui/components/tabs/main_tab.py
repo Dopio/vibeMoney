@@ -5,6 +5,11 @@ from tkinter import ttk
 class MainTab(ttk.Frame):
     def __init__(self, parent, start_callback=None, stop_callback=None, calibrate_callback=None):
         super().__init__(parent)
+        self.info_text = None
+        self.stop_button = None
+        self.start_button = None
+        self.progress_var = None
+        self.status_var = None
         self.start_callback = start_callback
         self.stop_callback = stop_callback
         self.calibrate_callback = calibrate_callback

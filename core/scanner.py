@@ -115,7 +115,8 @@ class ItemScanner:
             print(f"❌ Ошибка захвата mss: {e}")
             return None
 
-    def _preprocess_image(self, image):
+    @classmethod
+    def _preprocess_image(cls, image):
         """Подготавливает изображение для OCR"""
         # Конвертируем в numpy array для OpenCV
         img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
@@ -145,7 +146,8 @@ class ItemScanner:
             show_message(f"❌ Ошибка OCR: {e}")
             return ""
 
-    def _parse_mods(self, text):
+    @classmethod
+    def _parse_mods(cls, text):
         """Парсит текст и извлекает моды"""
         mods = []
 
@@ -195,7 +197,8 @@ class ItemScanner:
         # Считаем похожим на мод если есть либо префикс+числа, либо суффикс+числа
         return (has_prefix or has_suffix) and has_numbers
 
-    def has_desired_mod(self, mods, target_mods):
+    @classmethod
+    def has_desired_mod(cls, mods, target_mods):
         """Проверяет, есть ли среди модов целевые"""
         if not mods or not target_mods:
             return False
@@ -215,16 +218,17 @@ class ItemScanner:
         print("❌ Совпадений не найдено")
         return False
 
-    def _fuzzy_ocr_match(self, ocr_text, target_pattern):
+    @classmethod
+    def _fuzzy_ocr_match(cls, ocr_text, target_pattern):
         """Проверяет совпадение с учетом частых ошибок OCR"""
         # Заменяем common OCR ошибки
         corrections = {
-            'tt': 't',  # ADDTTIONAL → ADDITIONAL
-            'ii': 'i',  # ADDIIONAL → ADDITIONAL
-            'oo': 'o',  # BOWW → BOW
-            '0': 'o',  # B0W → BOW
-            '1': 'i',  # ADD1TIONAL → ADDITIONAL
-            '5': 's',  # ARROW5 → ARROWS
+            'tt': 't',
+            'ii': 'i',
+            'oo': 'o',
+            '0': 'o',
+            '1': 'i',
+            '5': 's',
         }
 
         # Применяем коррекции
@@ -235,7 +239,8 @@ class ItemScanner:
         # Проверяем совпадение после коррекции
         return target_pattern in corrected_text
 
-    def _image_hash(self, image):
+    @classmethod
+    def _image_hash(cls, image):
         """Создает простой хэш изображения для кэширования"""
         try:
             # Конвертируем в grayscale и ресайзим для быстрого хэширования
@@ -249,8 +254,8 @@ class ItemScanner:
             # Создаем битовый хэш
             bits = ''.join('1' if pixel > avg else '0' for pixel in pixels)
             return int(bits, 2)
-        except:
-            return 0
+        except Exception as e:
+            return print(f'Error in scanner.py _image_hash: {e}')
 
     def get_stats(self):
         """Возвращает статистику сканера"""
