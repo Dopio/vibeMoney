@@ -9,7 +9,7 @@ def direct_region_test():
     print("=" * 50)
 
     # Загружаем текущую область из конфига
-    with open('config.json', 'r') as f:
+    with open('../config.json', 'r') as f:
         config = json.load(f)
 
     region = config.get('scan_region', [2328, 493, 285, 65])
@@ -60,7 +60,7 @@ def direct_region_test():
         contrast = clahe.apply(gray)
 
         # Сохраняем обработанное
-        Image.fromarray(contrast).save('direct_processed.png')
+        Image.fromarray(contrast).save('../direct_processed.png')
         print("✅ Обработанное изображение: direct_processed.png")
 
         # Распознаем обработанное

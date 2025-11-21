@@ -1,11 +1,8 @@
 import json
 import os
-import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
 import time
-
-# Импортируем наши компоненты
 from .components import MainTab, LogDisplay
 from .components.tabs.settings_tab import SettingsTab
 from .components.tabs.stats_tab import StatsTab
@@ -13,6 +10,7 @@ from .components.tabs.stats_tab import StatsTab
 
 class MainWindow:
     def __init__(self, root):
+        self.notebook = None
         self.root = root
         self.root.title("PoE Craft Bot v2.0")
         self.root.geometry("900x700")
@@ -36,6 +34,7 @@ class MainWindow:
 
         # Загружаем конфиг при запуске
         self.load_config()
+        self.update_gui_from_config()
 
     def create_widgets(self):
         """Создает все элементы интерфейса с использованием компонентов"""
@@ -182,7 +181,8 @@ class MainWindow:
         if missing_fields:
             self.log_message(f"❌ Отсутствуют поля: {missing_fields}")
             messagebox.showerror("Ошибка",
-                                 f"В конфиге отсутствуют поля: {', '.join(missing_fields)}\nВыполните калибровку заново.")
+                                 f"В конфиге отсутствуют поля: "
+                                 f"{', '.join(missing_fields)}\nВыполните калибровку заново.")
             return False
 
         self.log_message("✅ Конфиг валиден")

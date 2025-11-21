@@ -60,13 +60,6 @@ class SafetyManager:
         self.emergency_stop_requested = True
         self.emergency_stop = True
 
-        # Дублируем в файл для надежности
-        try:
-            with open('emergency_stop.log', 'a', encoding='utf-8') as f:
-                f.write(f"{datetime.now().isoformat()} - ЭКСТРЕННАЯ ОСТАНОВКА ПО F12\n")
-        except:
-            pass
-
     def check_emergency_stop_requested(self):
         """Проверяет, была ли нажата горячая клавиша остановки"""
         return self.emergency_stop_requested

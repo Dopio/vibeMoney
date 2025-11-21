@@ -14,7 +14,7 @@ def full_system_test():
     print("=" * 50)
 
     # Загружаем конфиг
-    with open('config.json', 'r') as f:
+    with open('../config.json', 'r') as f:
         config = json.load(f)
 
     print("📋 Конфигурация:")

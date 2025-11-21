@@ -16,7 +16,7 @@ class CraftConfig:
 
     # Настройки безопасности
     min_delay: float = 0.3
-    max_delay: float = 2.5
+    max_delay: float = 0.5
     max_attempts: int = 1000
     click_variance: int = 15
 

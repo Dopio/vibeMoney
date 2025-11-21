@@ -112,24 +112,6 @@ class Calibrator:
 
         print("💾 Конфигурация сохранена в config.json")
 
-        # Показываем превью области сканирования
-        self.preview_scan_region()
-
-    def preview_scan_region(self):
-        """Показывает превью области сканирования"""
-        if self.positions['scan_region']:
-            try:
-                x, y, w, h = self.positions['scan_region']
-                screenshot = ImageGrab.grab(bbox=(x, y, x + w, y + h))
-                screenshot.save('calibration_preview.png')
-                print(f"📷 Превью сохранено как 'calibration_preview.png'")
-
-                # Показываем размер области
-                print(f"📏 Размер области: {w}x{h} пикселей")
-
-            except Exception as e:
-                print(f"⚠️ Не удалось создать превью: {e}")
-
 
 def main():
     """Главная функция запуска калибровки"""

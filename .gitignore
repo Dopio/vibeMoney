@@ -33,7 +33,6 @@ ENV/
 # Project specific
 config.json
 safety_log.json
-calibration_preview.png
 debug_screenshot.png
 
 # Logs
