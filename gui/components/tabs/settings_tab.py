@@ -68,6 +68,42 @@ class SettingsTab(ttk.Frame):
         self.max_delay.grid(row=row, column=1, sticky="w", pady=2, padx=(10, 0))
         row += 1
 
+        self._setup_text_widget_bindings()
+
+    def _setup_text_widget_bindings(self):
+        """Настраивает корректную обработку вставки для Text виджета"""
+        # Разрешаем стандартное поведение вставки
+        self.target_mods.bind('<Control-v>', self._handle_paste)
+        self.target_mods.bind('<Button-3>', self._show_context_menu)  # Правый клик
+
+    def _handle_paste(self, event=None):
+        """Обработчик вставки текста"""
+        try:
+            # Получаем текст из буфера обмена
+            clipboard_text = self.target_mods.clipboard_get()
+
+            # Вставляем текст в текущую позицию
+            self.target_mods.insert(tk.INSERT, clipboard_text)
+
+            # Предотвращаем стандартное поведение
+            return "break"
+        except Exception as e:
+            print(f"Ошибка при вставке: {e}")
+
+    def _show_context_menu(self, event):
+        """Показывает контекстное меню с опцией вставки"""
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(label="Вставить", command=self._paste_from_menu)
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def _paste_from_menu(self):
+        """Вставка из контекстного меню"""
+        try:
+            clipboard_text = self.target_mods.clipboard_get()
+            self.target_mods.insert(tk.INSERT, clipboard_text)
+        except Exception as e:
+            print(f"Ошибка при вставке из меню: {e}")
+
     def create_safety_settings(self, parent):
         """Настройки безопасности"""
         safety_frame = ttk.LabelFrame(parent, text="🛡️ Безопасность", padding=10)

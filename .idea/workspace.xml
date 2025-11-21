@@ -5,45 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="96f96b77-32b3-431b-bdc0-7bfa3995ed14" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/check_installation.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/check_monitor_setup.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/check_region.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/check_structure.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/check_tesseract.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/check_tesseract.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config_temp.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/core/safety.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/safety.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/debug_ocr.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/demo_advanced.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/demo_mode.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/direct_original.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/direct_processed.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/direct_region_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/direct_region_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/find_right_monitor.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/force_update.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/full_system_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/full_system_test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/bot.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/bot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/scanner.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/scanner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gui/components/tabs/settings_tab.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/components/tabs/settings_tab.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/main_window.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/region_check.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/right_monitor_full_3.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/right_monitor_region.png" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/scanner_capture.png" beforeDir="false" afterPath="$PROJECT_DIR$/scanner_capture.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scanner_original.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scanner_processed.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/second_monitor_full.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_accuracy_scan.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_accuracy_text.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_controller_scanner.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_controller_scanner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_installation.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_mss.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_ocr.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_right_monitor_scanner.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_safety.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_safety.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_tesseract.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/calibrator.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/calibrator.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

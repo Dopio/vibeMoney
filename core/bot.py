@@ -48,8 +48,10 @@ class PoeCraftBot:
             # Используем переданные параметры или из конфига
             currency_pos = self.config.get('currency_position')
             item_pos = self.config.get('item_position')
-            final_target_mods = target_mods or self.config.get('target_mods', [])
+            final_target_mods = target_mods or self.config.get('target_mods', ['crit'])
             final_max_attempts = max_attempts or self.config.get('max_attempts', 50)
+            final_min_delay = self.config.get('min_delay', 0.1)
+            final_max_delay = self.config.get('max_delay', 0.2)
             scan_region = self.config.get('scan_region')
 
             if not all([currency_pos, item_pos, scan_region]):
@@ -61,7 +63,9 @@ class PoeCraftBot:
                 currency_pos=currency_pos,
                 item_pos=item_pos,
                 max_attempts=final_max_attempts,
-                target_mods=final_target_mods
+                target_mods=final_target_mods,
+                min_delay=final_min_delay,
+                max_delay=final_max_delay
             )
 
             # Записываем результат в анализатор

@@ -67,6 +67,9 @@ class ItemScanner:
             # Парсим моды
             mods = self._parse_mods(text)
 
+            print(f"🔍 DEBUG: Распознанный текст: '{text}'")
+            print(f"🔍 DEBUG: Извлеченные моды: {mods}")
+
             # Сохраняем в кэш
             self.last_scan_hash = current_hash
             self.last_scan_result = mods
@@ -143,7 +146,7 @@ class ItemScanner:
             return ""
 
     def _parse_mods(self, text):
-        """Парсит текст и извлекает моды - УЛУЧШЕННАЯ ВЕРСИЯ"""
+        """Парсит текст и извлекает моды"""
         mods = []
 
         if not text:
@@ -156,12 +159,22 @@ class ItemScanner:
 
         for line in lines:
             line_clean = line.strip()
-            if len(line_clean) > 2:  # Уменьшаем минимальную длину
-                # УЛУЧШЕННАЯ ПРОВЕРКА: ищем любые комбинации с цифрами
+            if len(line_clean) > 5:  # Увеличиваем минимальную длину
+                # РАСШИРЕННАЯ ПРОВЕРКА: ищем любые осмысленные комбинации
                 has_numbers = any(char.isdigit() for char in line_clean)
                 has_letters = any(char.isalpha() for char in line_clean)
 
-                if has_numbers and has_letters:
+                # Ключевые слова которые указывают на мод (даже без цифр)
+                mod_keywords = [
+                    'bow', 'arrow', 'accuracy', 'critical', 'damage', 'speed',
+                    'resistance', 'life', 'mana', 'armour', 'evasion', 'gem',
+                    'additional', 'increased', 'reduced', 'faster', 'to'
+                ]
+
+                has_keyword = any(keyword in line_clean.lower() for keyword in mod_keywords)
+
+                # Добавляем если есть либо цифры, либо ключевые слова
+                if has_letters and (has_numbers or has_keyword):
                     # Очищаем мод от лишних пробелов
                     clean_mod = ' '.join(line_clean.split())
                     mods.append(clean_mod)
@@ -189,12 +202,38 @@ class ItemScanner:
 
         for mod in mods:
             mod_lower = mod.lower()
+            print(f"🔍 DEBUG: Проверяем мод: '{mod_lower}'")
+
             for target in target_mods:
-                if target.lower() in mod_lower:
+                target_lower = target.lower()
+                print(f"🔍 DEBUG: Ищем '{target_lower}' в '{mod_lower}'")
+
+                if target_lower in mod_lower:
                     show_message(f"🎯 Найден целевой мод: {mod}")
                     return True
 
+        print("❌ Совпадений не найдено")
         return False
+
+    def _fuzzy_ocr_match(self, ocr_text, target_pattern):
+        """Проверяет совпадение с учетом частых ошибок OCR"""
+        # Заменяем common OCR ошибки
+        corrections = {
+            'tt': 't',  # ADDTTIONAL → ADDITIONAL
+            'ii': 'i',  # ADDIIONAL → ADDITIONAL
+            'oo': 'o',  # BOWW → BOW
+            '0': 'o',  # B0W → BOW
+            '1': 'i',  # ADD1TIONAL → ADDITIONAL
+            '5': 's',  # ARROW5 → ARROWS
+        }
+
+        # Применяем коррекции
+        corrected_text = ocr_text
+        for wrong, right in corrections.items():
+            corrected_text = corrected_text.replace(wrong, right)
+
+        # Проверяем совпадение после коррекции
+        return target_pattern in corrected_text
 
     def _image_hash(self, image):
         """Создает простой хэш изображения для кэширования"""

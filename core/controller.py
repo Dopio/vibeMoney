@@ -11,6 +11,8 @@ class CraftController:
         self.shift_held = False
         self.scanner = None
         self.scan_region = None
+        self.min_delay = 0.3
+        self.max_delay = 0.5
 
     def set_scanner(self, scanner):
         """Устанавливает сканер для проверки модов"""
@@ -20,7 +22,13 @@ class CraftController:
         """Устанавливает регион сканирования"""
         self.scan_region = scan_region
 
-    def use_currency(self, currency_pos, item_pos, max_attempts=50, target_mods=None):
+    def use_currency(self,
+                     currency_pos,
+                     item_pos,
+                     max_attempts=50,
+                     target_mods=None,
+                     min_delay=0.1,
+                     max_delay=0.2):
         """Использует валюту на предмете - ОСНОВНОЙ МЕТОД"""
         try:
             if self.safety and self.safety.check_emergency_stop_requested():
@@ -28,9 +36,14 @@ class CraftController:
                 return False
 
             show_message(f"🔄 Запуск цикла крафта (макс. {max_attempts} попыток)")
-            time.sleep(1)
+            time.sleep(0)
 
-            success = self._use_currency_cycle(currency_pos, item_pos, max_attempts, target_mods)
+            success = self._use_currency_cycle(currency_pos,
+                                               item_pos,
+                                               max_attempts,
+                                               target_mods,
+                                               min_delay,
+                                               max_delay)
 
             if success:
                 self.action_count += 1
@@ -44,7 +57,13 @@ class CraftController:
             self._release_shift()
             return False
 
-    def _use_currency_cycle(self, currency_pos, item_pos, max_attempts, target_mods):
+    def _use_currency_cycle(self,
+                            currency_pos,
+                            item_pos,
+                            max_attempts,
+                            target_mods,
+                            min_delay,
+                            max_delay):
         """Цикл крафта - ПКМ на валюту → Shift → ЛКМ на предмет"""
         show_message("⚡ ПКМ + Shift + цикл ЛКМ")
 
@@ -58,13 +77,13 @@ class CraftController:
 
             # 2. ПРАВАЯ кнопка мыши по валюте
             pyautogui.mouseDown(button='right')
-            time.sleep(random.uniform(0.1, 0.2))
+            time.sleep(random.uniform(min_delay, max_delay))
             pyautogui.mouseUp(button='right')
             show_message("💰 Взяли валюту правой кнопкой")
             if not self._check_safety_continuous():
                 self._release_shift()
                 return False
-            time.sleep(0.5)
+            time.sleep(0.3)
 
             # 3. Зажимаем Shift
             pyautogui.keyDown('shift')
@@ -93,7 +112,7 @@ class CraftController:
 
                 # ЛЕВАЯ кнопка мыши по предмету
                 pyautogui.mouseDown(button='left')
-                time.sleep(random.uniform(0.1, 0.2))
+                time.sleep(random.uniform(min_delay, max_delay))
                 pyautogui.mouseUp(button='left')
                 show_message(f"✅ Применено {attempt} раз")
 
@@ -103,7 +122,7 @@ class CraftController:
 
                 # Пауза для обновления игры
                 show_message("⏳ Жду обновления игры...")
-                time.sleep(1.5)
+                time.sleep(0.1)
 
                 # Проверяем моды
                 if self._check_for_desired_mod(target_mods):
@@ -114,7 +133,7 @@ class CraftController:
                 # Пауза между применениями
                 if attempt < max_attempts:
                     show_message("⏸️ Пауза между применениями...")
-                    time.sleep(random.uniform(0.5, 1.0))
+                    time.sleep(random.uniform(min_delay, max_delay))
 
             show_message(f"❌ Цикл завершен - нужный мод не найден за {max_attempts} попыток")
             self._release_shift()
