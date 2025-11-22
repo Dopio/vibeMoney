@@ -46,7 +46,8 @@ class MainWindow:
             self.notebook,
             start_callback=self.start_bot,
             stop_callback=self.stop_bot,
-            calibrate_callback=self.start_calibration
+            calibrate_callback=self.start_calibration,
+            calibrate_stash_callback=self.open_stash_calibration
         )
         self.notebook.add(self.main_tab, text="🎮 Главная")
 
@@ -120,7 +121,7 @@ class MainWindow:
         if not self.current_config:
             return "❌ Конфиг не загружен. Требуется калибровка!"
 
-        return f"""
+        info = f"""
 🎯 Целевые моды: {', '.join(self.current_config.get('target_mods', []))}
 💰 Позиция валюты: {self.current_config.get('currency_position', 'Не задана')}
 🎒 Позиция предмета: {self.current_config.get('item_position', 'Не задана')}
@@ -128,6 +129,16 @@ class MainWindow:
 🔢 Максимум попыток: {self.current_config.get('max_attempts', 1000)}
 🛡️ Безопасность: ВКЛЮЧЕНА
         """
+
+        if 'stash_tab_position' in self.current_config:
+            info += f"""
+        📦 ДАННЫЕ ВКЛАДКИ:
+        ├── Позиция вкладки: {self.current_config.get('stash_tab_position')}
+        ├── Область предметов: {self.current_config.get('item_area_region', 'Не задана')}
+        └── Слотов предметов: {len(self.current_config.get('item_slots', []))}
+        """
+
+        return info
 
     def start_bot(self):
         """Запускает бота в отдельном потоке"""
@@ -265,6 +276,22 @@ class MainWindow:
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось запустить калибровку: {e}")
             self.log_message(f"❌ Ошибка калибровки: {e}")
+
+    def open_stash_calibration(self):
+        """Открывает окно калибровки вкладки"""
+        try:
+            from .stash_calibration_window import StashCalibrationWindow
+            stash_cal_window = StashCalibrationWindow(self)
+            self.root.wait_window(stash_cal_window.window)
+
+            # Перезагружаем конфиг после калибровки вкладки
+            self.force_config_reload()
+            self.update_gui_from_config()
+            self.log_message("✅ Калибровка вкладки завершена - настройки обновлены")
+
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось запустить калибровку вкладки: {e}")
+            self.log_message(f"❌ Ошибка калибровки вкладки: {e}")
 
     def save_settings(self):
         """Сохраняет настройки из GUI в конфиг"""

@@ -3,7 +3,11 @@ from tkinter import ttk
 
 
 class MainTab(ttk.Frame):
-    def __init__(self, parent, start_callback=None, stop_callback=None, calibrate_callback=None):
+    def __init__(self, parent,
+                 start_callback=None,
+                 stop_callback=None,
+                 calibrate_callback=None,
+                 calibrate_stash_callback=None):
         super().__init__(parent)
         self.info_text = None
         self.stop_button = None
@@ -13,6 +17,7 @@ class MainTab(ttk.Frame):
         self.start_callback = start_callback
         self.stop_callback = stop_callback
         self.calibrate_callback = calibrate_callback
+        self.calibrate_stash_callback = calibrate_stash_callback
 
         self.create_widgets()
 
@@ -61,6 +66,13 @@ class MainTab(ttk.Frame):
             command=self.calibrate_clicked
         ).pack(side="left", padx=5)
 
+        # Кнопка калибровки вкладки
+        ttk.Button(
+            button_frame,
+            text="📦 Калибровка вкладки",
+            command=self.calibrate_stash_clicked  # Исправлено: правильный метод
+        ).pack(side="left", padx=5)
+
         # Информация о конфиге
         self.info_text = tk.Text(main_frame, height=8, width=60, font=('Consolas', 9))
         self.info_text.pack(fill="both", expand=True, pady=10)
@@ -80,7 +92,11 @@ class MainTab(ttk.Frame):
         if self.calibrate_callback:
             self.calibrate_callback()
 
-    # ДОБАВЛЯЕМ НУЖНЫЕ МЕТОДЫ:
+    def calibrate_stash_clicked(self):
+        """Обработчик калибровки вкладки"""
+        if self.calibrate_stash_callback:
+            self.calibrate_stash_callback()
+
     def set_running_state(self, message="Бот запущен"):
         """Устанавливает состояние 'запущен'"""
         self.status_var.set("🟢 " + message)
