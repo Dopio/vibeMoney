@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from gui.main_window import MainWindow  # Новое название класса!
+    from gui.main_window import MainWindow
     import tkinter as tk
 
     print("🚀 Запуск PoE Craft Bot GUI...")

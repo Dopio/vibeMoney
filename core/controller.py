@@ -22,6 +22,8 @@ class CraftController:
         self.item_slots = []
         self.mass_craft_thread = None
         self.stash_tab_position = None
+        self.currency_position = None
+        self.target_mods = None
 
     def set_scanner(self, scanner):
         """Устанавливает сканер для проверки модов"""
@@ -64,6 +66,8 @@ class CraftController:
         self.is_mass_crafting = True
         self.current_item_index = 0
         self.successful_crafts = []
+        self.currency_position = currency_pos
+        self.target_mods = target_mods
 
         # Запускаем в отдельном потоке
         self.mass_craft_thread = threading.Thread(
@@ -80,13 +84,13 @@ class CraftController:
         try:
             total_items = len(self.item_slots)
 
-            for item_index, item_pos in enumerate(self.item_slots):
-                # ✅ ПРОВЕРКА F12 ПЕРЕД КАЖДЫМ ПРЕДМЕТОМ
+            for item_index in range(total_items):
                 if not self.is_mass_crafting or (self.safety and self.safety.check_emergency_stop_requested()):
                     show_message("🚨 Прервано по F12")
                     break
 
                 self.current_item_index = item_index
+                item_pos = self.item_slots[item_index]
                 show_message(f"🔧 Обработка предмета {item_index + 1}/{total_items}")
 
                 # Крафтим один предмет
@@ -94,7 +98,8 @@ class CraftController:
                     currency_pos,
                     item_pos,
                     target_mods,
-                    max_attempts_per_item
+                    max_attempts_per_item,
+                    is_first_item=(item_index == 0)
                 )
 
                 if success:
@@ -104,24 +109,31 @@ class CraftController:
                         'timestamp': time.time()
                     })
                     show_message(f"✅ Предмет {item_index + 1} успешно прокрафтен!")
+
+                    # Если это не последний предмет, отпускаем Shift для перехода
+                    if item_index < total_items - 1:
+                        self._release_shift()
+                        time.sleep(0.2)
                 else:
-                    # ✅ ПРОВЕРЯЕМ F12 ПРИ НЕУДАЧЕ
                     if self.safety and self.safety.check_emergency_stop_requested():
                         show_message("🚨 Прервано по F12")
                         break
                     show_message(f"❌ Предмет {item_index + 1} не удалось прокрафтить")
+                    self._release_shift()
 
             # Завершение массового крафта
+            self._release_shift()
             self.is_mass_crafting = False
             success_count = len(self.successful_crafts)
             show_message(f"🎉 Массовый крафт завершен! Успешно: {success_count}/{total_items}")
 
         except Exception as e:
+            self._release_shift()
             self.is_mass_crafting = False
             show_message(f"❌ Ошибка в массовом крафте: {e}")
 
-    def _craft_single_item(self, currency_pos, item_pos, target_mods, max_attempts):
-        """Крафт одного предмета до получения нужного мода"""
+    def _craft_single_item(self, currency_pos, item_pos, target_mods, max_attempts, is_first_item=True):
+        """Крафт одного предмета"""
         try:
             # 1. Правый клик по валюте
             self._log_important("💰 Правый клик по валюте")
@@ -143,22 +155,23 @@ class CraftController:
                 return False
             time.sleep(0.3)
 
-            # 3. Перемещаемся на вкладку stash
-            self._log_important("📁 Переходим на вкладку stash")
-            self._move_to_position_silent(self.stash_tab_position)
-            if not self._check_safety_continuous():
-                self._release_shift()
-                return False
-            time.sleep(0.3)
+            # 3. Если первый предмет - переходим на вкладку
+            if is_first_item:
+                self._log_important("📁 Переходим на вкладку stash")
+                self._move_to_position_silent(self.stash_tab_position)
+                if not self._check_safety_continuous():
+                    self._release_shift()
+                    return False
+                time.sleep(0.3)
 
-            # 4. Левый клик по вкладке (переходим на нее)
-            self._log_important("👆 Левый клик по вкладке")
-            pyautogui.mouseDown(button='left')
-            time.sleep(random.uniform(0.1, 0.2))
-            pyautogui.mouseUp(button='left')
-            time.sleep(0.5)  # Ждем перехода на вкладку
+                # Левый клик по вкладке
+                self._log_important("👆 Левый клик по вкладке")
+                pyautogui.mouseDown(button='left')
+                time.sleep(random.uniform(0.1, 0.2))
+                pyautogui.mouseUp(button='left')
+                time.sleep(0.5)
 
-            # 5. Наводимся на предмет
+            # 4. Наводимся на предмет
             self._log_important(f"🎯 Наводимся на предмет {self.current_item_index + 1}")
             self._move_to_position_silent(item_pos)
             if not self._check_safety_continuous():
@@ -166,10 +179,9 @@ class CraftController:
                 return False
             time.sleep(0.3)
 
-            # 6. Цикл крафта для этого предмета
+            # 5. Цикл крафта для этого предмета
             success = self._craft_item_cycle(target_mods, max_attempts, item_pos)
 
-            self._release_shift()
             return success
 
         except Exception as e:
@@ -184,12 +196,16 @@ class CraftController:
         # Вычисляем область сканирования для этого предмета
         mods_region = self.scanner.get_mods_region_for_item(item_pos[0], item_pos[1])
 
+        # Логируем позицию для отладки
+        self._log_important(f"📍 Позиция предмета: {item_pos}")
+        self._log_important(f"📍 Область сканирования: {mods_region}")
+
         for attempt in range(1, max_attempts + 1):
             if not self._check_safety_continuous():
                 self._log_important("🚨 Прервано по F12")
                 return False
 
-            # Левый клик по предмету (применяем валюту)
+            # Левый клик по предмету (применяем валюту) - Shift УЖЕ ЗАЖАТ
             pyautogui.mouseDown(button='left')
             time.sleep(random.uniform(0.1, 0.2))
             pyautogui.mouseUp(button='left')
@@ -199,10 +215,10 @@ class CraftController:
                 self.safety.last_action_time = time.time()
 
             # Пауза для обновления игры
-            time.sleep(0.3)
+            time.sleep(0.5)  # Увеличим паузу для стабильности
 
             # Проверяем моды
-            if attempt % 5 == 0 or attempt == max_attempts:
+            if attempt % 3 == 0 or attempt == max_attempts:  # Проверяем чаще
                 self._log_important(f"🔍 Проверка модов (попытка {attempt})")
 
             if self._check_for_desired_mod(target_mods, mods_region):
@@ -216,13 +232,161 @@ class CraftController:
         self._log_important(f"❌ Целевой мод не найден за {max_attempts} попыток")
         return False
 
-    def use_currency(self,
-                     currency_pos,
-                     item_pos,
-                     max_attempts=50,
-                     target_mods=None,
-                     min_delay=0.1,
-                     max_delay=0.2):
+    def _check_for_desired_mod(self, target_mods, scan_region=None):
+        """Улучшенная проверка с детальной отладкой"""
+        if not target_mods or not self.scanner:
+            return False
+
+        try:
+            # Сканируем предмет
+            if scan_region:
+                mods = self.scanner.scan_item(scan_region)
+            else:
+                mods = self.scanner.scan_item_mods(self.scan_region)
+
+            if mods:
+                # ✅ ДЕТАЛЬНАЯ ОТЛАДКА: что распозналось
+                self._log_important(f"🔍 Распознанные моды ({len(mods)}):")
+                for i, mod in enumerate(mods):
+                    self._log_important(f"   {i + 1}. '{mod}'")
+
+                # Объединяем все моды в один текст для поиска
+                all_text = " ".join(mods).lower()
+                self._log_important(f"📝 Общий текст для поиска: '{all_text}'")
+
+                # Ищем каждый целевой мод
+                for target in target_mods:
+                    target_lower = target.lower()
+                    self._log_important(f"🔎 Ищем '{target_lower}'...")
+
+                    # Прямой поиск
+                    if target_lower in all_text:
+                        self._log_important(f"🎯 Найден точный мод: '{target}'")
+                        return True
+
+                    # Поиск по частям слова
+                    if len(target_lower) >= 4:
+                        # Ищем начало слова
+                        for i in range(4, len(target_lower) + 1):
+                            partial = target_lower[:i]
+                            if partial in all_text:
+                                self._log_important(f"🎯 Найдено начало '{partial}' от '{target}'")
+                                return True
+
+                    # Поиск с типичными ошибками OCR
+                    ocr_variants = self._generate_ocr_variants(target_lower)
+                    for variant in ocr_variants:
+                        if variant in all_text:
+                            self._log_important(f"🎯 Найден вариант '{variant}' для '{target}'")
+                            return True
+
+            else:
+                self._log_important("❌ Моды не распознаны")
+
+            return False
+
+        except Exception as e:
+            self._log_important(f"⚠️ Ошибка проверки модов: {e}")
+            return False
+
+    def _generate_ocr_variants(self, word):
+        """Генерирует варианты слова с учетом ошибок OCR"""
+        variants = set()
+
+        # Типичные замены для PoE модов
+        replacements = {
+            'i': ['l', '1', '|'],
+            'l': ['i', '1', '|'],
+            'e': ['c', 'o'],
+            'c': ['e', 'o'],
+            'a': ['@', 'o'],
+            'o': ['0', 'e'],
+            's': ['5', '8'],
+            'n': ['m', 'r'],
+            'm': ['n', 'r'],
+            'r': ['n', 'm'],
+            't': ['7', '1'],
+            'd': ['cl', 'ol'],
+            'p': ['p', 'b'],
+            'b': ['8', '6']
+        }
+
+        # Добавляем оригинальное слово
+        variants.add(word)
+
+        # Генерируем варианты с заменой каждого символа
+        for i, char in enumerate(word):
+            if char in replacements:
+                for replacement in replacements[char]:
+                    variant = word[:i] + replacement + word[i + 1:]
+                    variants.add(variant)
+
+        # Варианты для конкретных PoE модов
+        poe_variants = {
+            'increased': ['increasd', 'increas', 'incresed', 'incres', 'increa', 'incre'],
+            'critical': ['critcal', 'criticl', 'crit', 'cric', 'cirt'],
+            'strike': ['strik', 'stric', 'strke'],
+            'chance': ['chanc', 'chanse', 'chace'],
+            'damage': ['damag', 'dama', 'dmg'],
+            'physical': ['physcal', 'physicl', 'phys'],
+            'attack': ['atack', 'atac', 'atak'],
+            'speed': ['sped', 'sped'],
+            'global': ['globa', 'globl'],
+            'accuracy': ['acuracy', 'acuraccy', 'accur'],
+            'rating': ['ratin', 'ratng'],
+            'projectile': ['projectl', 'projctile', 'proj'],
+            'elemental': ['elementl', 'elemntal'],
+            'resistance': ['resistanse', 'resis'],
+            'lightning': ['lightnng', 'lghtning'],
+        }
+
+        if word in poe_variants:
+            variants.update(poe_variants[word])
+
+        return list(variants)
+
+    @classmethod
+    def _move_to_position_silent(cls, position):
+        """Наводим мышь без сообщений с плавным движением"""
+        x, y = position
+
+        # Добавляем небольшую рандомизацию
+        variance = random.randint(2, 5)
+        offset_x = random.randint(-variance, variance)
+        offset_y = random.randint(-variance, variance)
+
+        move_duration = random.uniform(0.2, 0.4)
+        pyautogui.moveTo(x + offset_x, y + offset_y, duration=move_duration)
+
+    @classmethod
+    def _log_important(cls, message):
+        """Логирует только важные сообщения"""
+        print(f"[Craft] {message}")
+
+    def _check_safety_continuous(self):
+        """Проверка безопасности включая F12"""
+        if not self.safety:
+            return True
+
+        # Проверяем F12
+        if hasattr(self.safety, 'check_emergency_stop_requested') and self.safety.check_emergency_stop_requested():
+            return False
+
+        # Проверяем другие условия безопасности
+        if hasattr(self.safety, 'check_all_safety_conditions'):
+            return self.safety.check_all_safety_conditions()
+
+        return True
+
+    def _release_shift(self):
+        """Отпускает Shift если зажат"""
+        if self.shift_held:
+            pyautogui.keyUp('shift')
+            self.shift_held = False
+            self._log_important("⇧ Shift отпущен")
+
+    # Остальные методы для совместимости
+    def use_currency(self, currency_pos, item_pos, max_attempts=50, target_mods=None, min_delay=0.1, max_delay=0.2):
         """Использует валюту на предмете - ОСНОВНОЙ МЕТОД (совместимость)"""
         try:
             if self.safety and self.safety.check_emergency_stop_requested():
@@ -231,12 +395,7 @@ class CraftController:
 
             show_message(f"🔄 Запуск цикла крафта (макс. {max_attempts} попыток)")
 
-            success = self._use_currency_cycle(currency_pos,
-                                               item_pos,
-                                               max_attempts,
-                                               target_mods,
-                                               min_delay,
-                                               max_delay,
+            success = self._use_currency_cycle(currency_pos, item_pos, max_attempts, target_mods, min_delay, max_delay,
                                                self.scan_region)
 
             if success:
@@ -253,7 +412,7 @@ class CraftController:
 
     def _use_currency_cycle(self, currency_pos, item_pos, max_attempts, target_mods, min_delay, max_delay,
                             mods_region=None):
-        """Цикл крафта для обычного режима (без вкладки)"""
+        """Цикл крафта для обычного режима"""
         self._log_important("⚡ Начинаем цикл крафта...")
 
         try:
@@ -303,11 +462,10 @@ class CraftController:
                     self.safety.last_action_time = time.time()
 
                 # Пауза для обновления игры
-                time.sleep(0.1)
+                time.sleep(0.5)
 
                 # Проверяем моды
-                if attempt % 5 == 0 or attempt == max_attempts:
-                    self._log_important(f"🔍 Проверка модов (попытка {attempt})")
+                self._log_important(f"🔍 Проверка модов (попытка {attempt})")
 
                 if self._check_for_desired_mod(target_mods, mods_region):
                     self._log_important(f"🎉 Нужный мод найден! Попытка: {attempt}")
@@ -326,78 +484,6 @@ class CraftController:
             self._release_shift()
             self._log_important(f"❌ Ошибка в цикле крафта: {e}")
             return False
-
-    @classmethod
-    def _move_to_position_silent(cls, position):
-        """Наводим мышь без сообщений"""
-        x, y = position
-        variance = random.randint(3, 8)
-        offset_x = random.randint(-variance, variance)
-        offset_y = random.randint(-variance, variance)
-
-        move_duration = random.uniform(0.2, 0.4)
-        pyautogui.moveTo(x + offset_x, y + offset_y, duration=move_duration)
-
-    @classmethod
-    def _log_important(cls, message):
-        """Логирует только важные сообщения"""
-        print(f"[Craft] {message}")
-
-    def _check_for_desired_mod(self, target_mods, scan_region=None):
-        """Проверяет наличие нужных модов через сканер"""
-        if not target_mods or not self.scanner:
-            return False
-
-        try:
-            # Используем переданную область или дефолтную
-            if scan_region:
-                mods = self.scanner.scan_item(scan_region)
-            else:
-                mods = self.scanner.scan_item_mods(self.scan_region)
-
-            if mods:
-                found = self.scanner.has_desired_mod(mods, target_mods)
-                return found
-            return False
-
-        except Exception as e:
-            self._log_important(f"⚠️ Ошибка проверки модов: {e}")
-            return False
-
-    def _check_safety_continuous(self):
-        """Проверка безопасности включая F12"""
-        if not self.safety:
-            return True
-
-        # Проверяем F12
-        if hasattr(self.safety, 'check_emergency_stop_requested') and self.safety.check_emergency_stop_requested():
-            return False
-
-        # Проверяем другие условия безопасности
-        if hasattr(self.safety, 'check_all_safety_conditions'):
-            return self.safety.check_all_safety_conditions()
-
-        return True
-
-    def _release_shift(self):
-        """Отпускает Shift если зажат"""
-        if self.shift_held:
-            pyautogui.keyUp('shift')
-            self.shift_held = False
-            self._log_important("⇧ Shift отпущен")
-
-    @classmethod
-    def _move_to_position(cls, position, target_name):
-        """Наводим мышь на указанную позицию"""
-        x, y = position
-        show_message(f"🎯 Наведение на {target_name}: ({x}, {y})")
-
-        variance = random.randint(3, 8)
-        offset_x = random.randint(-variance, variance)
-        offset_y = random.randint(-variance, variance)
-
-        move_duration = random.uniform(0.2, 0.4)
-        pyautogui.moveTo(x + offset_x, y + offset_y, duration=move_duration)
 
     def stop_crafting(self):
         """Экстренная остановка крафта"""

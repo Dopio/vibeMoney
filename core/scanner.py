@@ -1,4 +1,5 @@
 import mss
+import re
 from PIL import Image
 import cv2
 import numpy as np
@@ -14,17 +15,29 @@ class ItemScanner:
         self.scan_count = 0
         self.right_monitor = self._find_right_monitor()
 
-        # УЛУЧШЕННЫЕ настройки OCR
-        self.ocr_config = (r'--oem 3 --psm 8 -c '
-                           r'tessedit_char_whitelist='
-                           r'abcdefghijklmnopqrstuvwxyz'
-                           r'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-+% '
-                           r'-c preserve_interword_spaces=1')
+        # УЛУЧШЕННЫЕ настройки OCR для PoE
+        self.ocr_config = r'--oem 3 --psm 6'
 
-        # Целевые моды для поиска
-        self.common_prefixes = ["increased", "added", "additional", "enhanced", "supported", "faster", "to"]
-        self.common_suffixes = ["damage", "speed", "critical", "resistance", "life", "mana", "armour", "evasion",
-                                "accuracy", "rating"]
+        # Расширенный список ключевых слов PoE
+        self.poe_mods_keywords = [
+            # Damage types
+            'physical', 'fire', 'cold', 'lightning', 'chaos', 'elemental',
+            'damage', 'attack', 'spell', 'projectile', 'melee', 'bow',
+
+            # Stats
+            'increased', 'more', 'additional', 'added', 'reduced', 'less',
+            'critical', 'speed', 'accuracy', 'life', 'mana', 'armour',
+            'evasion', 'energy', 'shield', 'resistance', 'strength',
+            'dexterity', 'intelligence', 'attribute',
+
+            # Mechanics
+            'chance', 'duration', 'radius', 'area', 'quality', 'level',
+            'gem', 'support', 'faster', 'slower', 'regen', 'leech',
+
+            # Common mod parts
+            'to', 'of', 'and', 'with', 'per', 'global', 'local',
+            'maximum', 'minimum', 'increased', 'reduced'
+        ]
 
         # Кэш
         self.last_scan_hash = None
@@ -50,13 +63,16 @@ class ItemScanner:
         """
         Вычисляет область сканирования модов для конкретного предмета
         """
-        # УВЕЛИЧИВАЕМ смещения и размеры
-        mods_offset_x = -50  # больше отступ
-        mods_offset_y = -50  # больше отступ
-        mods_width = 800  # шире область
-        mods_height = 150  # выше область
+        item_width = self.config.get('stash_item_width', 70)
+        item_height = self.config.get('stash_item_height', 70)
 
-        mods_x = item_x + mods_offset_x
+        # Увеличиваем область сканирования для лучшего захвата
+        mods_offset_x = 0
+        mods_offset_y = 0
+        mods_width = 600  # Шире для захвата полных модов
+        mods_height = 150  # Выше для захвата нескольких строк
+
+        mods_x = item_x + item_width + mods_offset_x
         mods_y = item_y + mods_offset_y
 
         return {
@@ -67,7 +83,7 @@ class ItemScanner:
         }
 
     def scan_item(self, scan_region):
-        """Сканирует моды предмета"""
+        """Сканирует моды предмета с улучшенным OCR"""
         try:
             if self.safety and not self.safety.check_all_safety_conditions():
                 return []
@@ -84,14 +100,14 @@ class ItemScanner:
                 show_message("⚡ Используем кэшированный результат")
                 return self.last_scan_result
 
-            # УЛУЧШЕННАЯ обработка изображения
-            processed_image = self._preprocess_image(screenshot)
+            # Улучшенная обработка изображения
+            processed_image = self._preprocess_image_improved(screenshot)
 
-            # УЛУЧШЕННОЕ распознавание текста
-            text = self._extract_text(processed_image)
+            # Распознавание текста с разными настройками
+            text = self._extract_text_improved(processed_image)
 
-            # УЛУЧШЕННЫЙ парсинг модов
-            mods = self._parse_mods(text)
+            # Улучшенный парсинг модов
+            mods = self._parse_mods_improved(text)
 
             print(f"🔍 DEBUG: Распознанный текст: '{text}'")
             print(f"🔍 DEBUG: Извлеченные моды: {mods}")
@@ -113,6 +129,200 @@ class ItemScanner:
             if self.safety:
                 self.safety.record_action(success=False, action_type="scan_error")
             return []
+
+    def _preprocess_image_improved(self, image):
+        """Улучшенная подготовка изображения для PoE текста"""
+        try:
+            img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+            # Конвертируем в grayscale
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+            # Увеличиваем контраст
+            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+            contrast = clahe.apply(gray)
+
+            # Бинаризация
+            _, binary = cv2.threshold(contrast, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+            # Убираем шум
+            kernel = np.ones((1, 1), np.uint8)
+            cleaned = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+
+            # Увеличиваем изображение для лучшего распознавания
+            scale_percent = 150  # 150% увеличение
+            width = int(cleaned.shape[1] * scale_percent / 100)
+            height = int(cleaned.shape[0] * scale_percent / 100)
+            resized = cv2.resize(cleaned, (width, height), interpolation=cv2.INTER_CUBIC)
+
+            return resized
+
+        except Exception as e:
+            print(f"❌ Ошибка обработки изображения: {e}")
+            return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+
+    def _extract_text_improved(self, image):
+        """Улучшенное извлечение текста"""
+        try:
+            # Пробуем разные настройки OCR
+            texts = []
+
+            # Настройка 1: Стандартная для PoE
+            text1 = pytesseract.image_to_string(image, config=self.ocr_config, lang='eng')
+            texts.append(text1)
+
+            # Настройка 2: Single column
+            text2 = pytesseract.image_to_string(image, config='--oem 3 --psm 4', lang='eng')
+            texts.append(text2)
+
+            # Настройка 3: Single word
+            text3 = pytesseract.image_to_string(image, config='--oem 3 --psm 8', lang='eng')
+            texts.append(text3)
+
+            # Выбираем самый длинный текст (обычно самый точный)
+            best_text = max(texts, key=lambda x: len(x.strip()))
+
+            return best_text.strip()
+
+        except Exception as e:
+            show_message(f"❌ Ошибка OCR: {e}")
+            return ""
+
+    def _parse_mods_improved(self, text):
+        """Улучшенный парсинг модов для PoE"""
+        mods = []
+
+        if not text:
+            print("❌ Текст для парсинга пустой")
+            return mods
+
+        print(f"📝 Исходный текст для парсинга: '{text}'")
+
+        lines = text.split('\n')
+
+        for line in lines:
+            line_clean = line.strip()
+
+            # Более либеральные условия для PoE модов
+            if len(line_clean) >= 3:  # Уменьшаем минимальную длину
+
+                # Проверяем наличие ключевых слов PoE
+                has_poe_keyword = any(keyword in line_clean.lower() for keyword in self.poe_mods_keywords)
+
+                # Проверяем наличие цифр (процентов, значений)
+                has_numbers = any(char.isdigit() for char in line_clean)
+
+                # Проверяем наличие букв
+                has_letters = any(char.isalpha() for char in line_clean)
+
+                # Условия для включения в моды:
+                # 1. Есть ключевое слово PoE И (цифры ИЛИ длина > 6)
+                # 2. Есть цифры И буквы И длина > 5
+                condition1 = has_poe_keyword and (has_numbers or len(line_clean) > 6)
+                condition2 = has_numbers and has_letters and len(line_clean) > 5
+
+                if condition1 or condition2:
+                    clean_mod = ' '.join(line_clean.split())
+
+                    # Фильтруем очевидный мусор
+                    if not self._is_garbage_text(clean_mod):
+                        mods.append(clean_mod)
+                        print(f"✅ Добавлен мод: '{clean_mod}'")
+
+        print(f"📄 Всего распознано модов: {len(mods)}")
+        return mods
+
+    def _is_garbage_text(self, text):
+        """Фильтрует мусорный текст"""
+        if len(text) < 3:
+            return True
+
+        text_lower = text.lower()
+
+        # Очевидный мусор
+        garbage_patterns = [
+            r'^[^a-zA-Z0-9]*$',  # Только спецсимволы
+            r'^[a-zA-Z]{1,2}$',  # Одна-две буквы
+            r'^\d+$',  # Только цифры
+        ]
+
+        for pattern in garbage_patterns:
+            if re.match(pattern, text_lower):
+                return True
+
+        # Дополнительные фильтры для PoE
+        garbage_words = ['zzz', 'aaa', 'xxx', '...', '---', '___', '///', '\\\\']
+        if any(word in text_lower for word in garbage_words):
+            return True
+
+        return False
+
+    def has_desired_mod(self, mods, target_mods):
+        """Улучшенная проверка целевых модов"""
+        if not mods or not target_mods:
+            print("❌ Нет модов или целевых модов для проверки")
+            return False
+
+        print(f"🎯 Ищем целевые моды: {target_mods}")
+        print(f"📄 Проверяем {len(mods)} модов:")
+
+        for i, mod in enumerate(mods):
+            mod_lower = mod.lower()
+            print(f"  {i + 1}. '{mod}' -> '{mod_lower}'")
+
+            for target in target_mods:
+                target_lower = target.lower()
+
+                # Разные стратегии поиска
+                exact_match = target_lower in mod_lower
+                word_match = any(word in mod_lower for word in target_lower.split())
+                fuzzy_match = self._fuzzy_ocr_match(mod_lower, target_lower)
+
+                if exact_match:
+                    print(f"🎯 Точное совпадение: '{target}' в '{mod}'")
+                    show_message(f"🎯 Найден целевой мод: {mod}")
+                    return True
+
+                elif word_match:
+                    print(f"🎯 Совпадение по словам: '{target}' в '{mod}'")
+                    show_message(f"🎯 Найден целевой мод: {mod}")
+                    return True
+
+                elif fuzzy_match:
+                    print(f"🎯 Нечеткое совпадение: '{target}' в '{mod}'")
+                    show_message(f"🎯 Найден целевой мод: {mod}")
+                    return True
+
+        print("❌ Совпадений не найдено")
+        return False
+
+    def _fuzzy_ocr_match(self, ocr_text, target_pattern):
+        """Нечеткое совпадение для обработки ошибок OCR"""
+        if not ocr_text or not target_pattern:
+            return False
+
+        # Частые ошибки OCR в PoE
+        corrections = {
+            '0': 'o', '1': 'i', '5': 's', '8': 'b',
+            'tt': 't', 'ii': 'i', 'oo': 'o', 'vv': 'w',
+            'rn': 'm', 'cl': 'd'
+        }
+
+        corrected_text = ocr_text
+        for wrong, right in corrections.items():
+            corrected_text = corrected_text.replace(wrong, right)
+
+        # Ищем частичное совпадение
+        if target_pattern in corrected_text:
+            return True
+
+        # Ищем по словам
+        target_words = target_pattern.split()
+        for word in target_words:
+            if len(word) > 3 and word in corrected_text:
+                return True
+
+        return False
 
     def scan_item_mods(self, scan_region=None):
         """Адаптер для совместимости с craft_controller"""
@@ -159,17 +369,16 @@ class ItemScanner:
                 print(f"❌ Неизвестный формат региона: {region}")
                 return None
 
-            # УВЕЛИЧИВАЕМ область захвата для надежности
-            expanded_region = {
-                'left': max(0, int(x - 5)),  # расширяем слева
-                'top': max(0, int(y - 5)),  # расширяем сверху
-                'width': int(w + 10),  # расширяем ширину
-                'height': int(h + 10)  # расширяем высоту
-            }
-
             try:
                 with mss.mss() as sct:
-                    screenshot = sct.grab(expanded_region)
+                    monitor_region = {
+                        'left': int(x),
+                        'top': int(y),
+                        'width': int(w),
+                        'height': int(h)
+                    }
+
+                    screenshot = sct.grab(monitor_region)
                     img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
 
                     # Сохраняем для отладки
@@ -199,12 +408,6 @@ class ItemScanner:
             else:
                 return None
 
-            # УВЕЛИЧИВАЕМ область для fallback
-            x = max(0, x - 5)
-            y = max(0, y - 5)
-            w = w + 10
-            h = h + 10
-
             screenshot = pyautogui.screenshot(region=(x, y, w, h))
             screenshot.save('scanner_capture_fallback.png')
             print("✅ Скриншот сохранен (fallback): scanner_capture_fallback.png")
@@ -213,142 +416,13 @@ class ItemScanner:
             print(f"❌ Ошибка fallback захвата: {e}")
             return None
 
-    @classmethod
-    def _preprocess_image(cls, image):
-        """УЛУЧШЕННАЯ подготовка изображения для OCR"""
-        try:
-            img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-            # УЛУЧШЕННОЕ увеличение контраста
-            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-            enhanced = clahe.apply(gray)
-
-            # УЛУЧШЕННАЯ бинаризация
-            _, binary = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-            # УЛУЧШЕННОЕ удаление шума
-            kernel = np.ones((1, 1), np.uint8)
-            cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-
-            # ДОБАВЛЯЕМ резкость
-            kernel_sharp = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
-            sharpened = cv2.filter2D(cleaned, -1, kernel_sharp)
-
-            return sharpened
-        except Exception as e:
-            print(f"❌ Ошибка обработки изображения: {e}")
-            return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
-
-    def _extract_text(self, image):
-        """УЛУЧШЕННОЕ извлечение текста"""
-        try:
-            # Пробуем разные PSM режимы
-            text1 = pytesseract.image_to_string(image, config=self.ocr_config, lang='eng')
-
-            # Пробуем другой PSM режим
-            alt_config = r'--oem 3 --psm 6'
-            text2 = pytesseract.image_to_string(image, config=alt_config, lang='eng')
-
-            # Выбираем лучший результат
-            if len(text1.strip()) > len(text2.strip()):
-                return text1.strip()
-            else:
-                return text2.strip()
-
-        except Exception as e:
-            show_message(f"❌ Ошибка OCR: {e}")
-            return ""
-
-    @classmethod
-    def _parse_mods(cls, text):
-        """УЛУЧШЕННЫЙ парсинг модов"""
-        mods = []
-
-        if not text:
-            print("❌ Текст для парсинга пустой")
-            return mods
-
-        print(f"📝 Исходный текст для парсинга: '{text}'")
-
-        lines = text.split('\n')
-
-        for line in lines:
-            line_clean = line.strip()
-            if len(line_clean) > 2:  # УМЕНЬШАЕМ минимальную длину
-                # УЛУЧШЕННАЯ проверка: больше ключевых слов
-                has_numbers = any(char.isdigit() for char in line_clean)
-                has_letters = any(char.isalpha() for char in line_clean)
-
-                # РАСШИРЕННЫЙ список ключевых слов
-                mod_keywords = [
-                    'bow', 'arrow', 'accuracy', 'critical', 'damage', 'speed',
-                    'resistance', 'life', 'mana', 'armour', 'evasion', 'gem',
-                    'additional', 'increased', 'reduced', 'faster', 'to',
-                    'physical', 'fire', 'cold', 'lightning', 'chaos', 'elemental',
-                    'melee', 'attack', 'cast', 'spell', 'projectile', 'minion',
-                    'quality', 'duration', 'radius', 'area', 'strength', 'dexterity',
-                    'intelligence', 'attribute', 'chance', 'leech', 'regen'
-                ]
-
-                has_keyword = any(keyword in line_clean.lower() for keyword in mod_keywords)
-
-                # УПРОЩАЕМ логику: добавляем если есть буквы и что-то осмысленное
-                if has_letters and (has_numbers or has_keyword or len(line_clean) > 10):
-                    clean_mod = ' '.join(line_clean.split())
-                    # ФИЛЬТРУЕМ очевидный мусор
-                    if not any(bad in clean_mod.lower() for bad in ['zzz', 'aaa', 'xxx', '...']):
-                        mods.append(clean_mod)
-                        print(f"✅ Добавлен мод: '{clean_mod}'")
-
-        print(f"📄 Всего распознано модов: {len(mods)}")
-        return mods
-
-    @classmethod
-    def has_desired_mod(cls, mods, target_mods):
-        """УЛУЧШЕННАЯ проверка целевых модов"""
-        if not mods or not target_mods:
-            return False
-
-        for mod in mods:
-            mod_lower = mod.lower()
-            print(f"🔍 DEBUG: Проверяем мод: '{mod_lower}'")
-
-            for target in target_mods:
-                target_lower = target.lower()
-                print(f"🔍 DEBUG: Ищем '{target_lower}' в '{mod_lower}'")
-
-                # УЛУЧШАЕМ поиск: частичное совпадение
-                if (target_lower in mod_lower or
-                        any(word in mod_lower for word in target_lower.split()) or
-                        cls._fuzzy_match(mod_lower, target_lower)):
-                    show_message(f"🎯 Найден целевой мод: {mod}")
-                    return True
-
-        print("❌ Совпадений не найдено")
-        return False
-
-    @classmethod
-    def _fuzzy_match(cls, text, pattern):
-        """Нечеткое совпадение для OCR ошибок"""
-        # Простые замены частых ошибок OCR
-        corrections = {
-            '0': 'o', '1': 'i', '5': 's', '8': 'b',
-            'tt': 't', 'ii': 'i', 'oo': 'o', 'vv': 'w'
-        }
-
-        corrected_text = text
-        for wrong, right in corrections.items():
-            corrected_text = corrected_text.replace(wrong, right)
-
-        return pattern in corrected_text
-
-    # Остальные методы без изменений
     def check_target_mods(self, current_mods, target_mods):
+        """Адаптер для craft_controller"""
         return self.has_desired_mod(current_mods, target_mods)
 
     @classmethod
     def _image_hash(cls, image):
+        """Создает хэш изображения для кэширования"""
         try:
             small = image.resize((8, 8), Image.Resampling.LANCZOS)
             grayscale = small.convert('L')
@@ -361,11 +435,13 @@ class ItemScanner:
             return hash(str(image))
 
     def get_stats(self):
+        """Возвращает статистику сканера"""
         return {
             'total_scans': self.scan_count,
             'status': 'active'
         }
 
     def update_config(self, new_config):
+        """Обновляет конфигурацию сканера"""
         self.config = new_config
         print("✅ Конфигурация сканера обновлена")
