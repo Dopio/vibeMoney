@@ -114,3 +114,23 @@ class PoeCraftBot:
         if self.safety:
             self.safety.trigger_emergency_stop("Ручная остановка")
         self.stop_crafting()
+
+    def start_mass_craft(self, currency_pos, target_mods, max_attempts_per_item=50):
+        """Запускает массовый крафт"""
+        try:
+            show_message(f"🤖 Запуск массового крафта для {len(self.controller.item_slots)} предметов")
+
+            if not hasattr(self.controller, 'start_mass_craft'):
+                show_message("❌ Контроллер не поддерживает массовый крафт")
+                return False
+
+            # Запускаем массовый крафт через контроллер
+            return self.controller.start_mass_craft(
+                currency_pos=currency_pos,
+                target_mods=target_mods,
+                max_attempts_per_item=max_attempts_per_item
+            )
+
+        except Exception as e:
+            show_message(f"❌ Ошибка запуска массового крафта: {e}")
+            return False

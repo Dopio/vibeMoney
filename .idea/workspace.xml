@@ -5,13 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="96f96b77-32b3-431b-bdc0-7bfa3995ed14" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/gui/stash_calibration_window.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/gui/components/tabs/mass_craft_tab.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/stash_tab_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/settings.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/components/tabs/main_tab.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/components/tabs/main_tab.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gui/components/widgets/control_buttons.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/components/widgets/control_buttons.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/bot.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/bot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/controller.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/safety.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/safety.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/scanner.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/scanner.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gui/main_window.py" beforeDir="false" afterPath="$PROJECT_DIR$/gui/main_window.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/safety_log.json" beforeDir="false" afterPath="$PROJECT_DIR$/safety_log.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scanner_capture.png" beforeDir="false" afterPath="$PROJECT_DIR$/scanner_capture.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
