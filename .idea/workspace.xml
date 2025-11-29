@@ -8,7 +8,6 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/controller.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/controller.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/core/scanner.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/scanner.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/run_gui.py" beforeDir="false" afterPath="$PROJECT_DIR$/run_gui.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/safety_log.json" beforeDir="false" afterPath="$PROJECT_DIR$/safety_log.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scanner_capture.png" beforeDir="false" afterPath="$PROJECT_DIR$/scanner_capture.png" afterDir="false" />
     </list>

@@ -3,7 +3,7 @@ import re
 from PIL import Image
 import cv2
 import numpy as np
-import pytesseract
+import easyocr
 from utils.helpers import show_message
 import pyautogui
 
@@ -15,8 +15,13 @@ class ItemScanner:
         self.scan_count = 0
         self.right_monitor = self._find_right_monitor()
 
-        # УЛУЧШЕННЫЕ настройки OCR для PoE
-        self.ocr_config = r'--oem 3 --psm 6'
+        # Инициализация EasyOCR
+        try:
+            self.reader = easyocr.Reader(['en'])
+            print("✅ EasyOCR успешно инициализирован")
+        except Exception as e:
+            print(f"❌ Ошибка инициализации EasyOCR: {e}")
+            self.reader = None
 
         # Расширенный список ключевых слов PoE
         self.poe_mods_keywords = [
@@ -43,7 +48,8 @@ class ItemScanner:
         self.last_scan_hash = None
         self.last_scan_result = None
 
-    def _find_right_monitor(self):
+    @classmethod
+    def _find_right_monitor(cls):
         """Находит самый правый монитор"""
         try:
             with mss.mss() as sct:
@@ -67,13 +73,13 @@ class ItemScanner:
         item_height = self.config.get('stash_item_height', 70)
 
         # Увеличиваем область сканирования для лучшего захвата
-        mods_offset_x = 0
-        mods_offset_y = 0
-        mods_width = 600  # Шире для захвата полных модов
-        mods_height = 150  # Выше для захвата нескольких строк
+        mods_offset_x = -125  # широта
+        mods_offset_y = -170  # долгота
+        mods_width = 800  # Шире для захвата полных модов
+        mods_height = 200  # Выше для захвата нескольких строк
 
         mods_x = item_x + item_width + mods_offset_x
-        mods_y = item_y + mods_offset_y
+        mods_y = item_y + item_height + mods_offset_y
 
         return {
             'left': mods_x,
@@ -83,7 +89,7 @@ class ItemScanner:
         }
 
     def scan_item(self, scan_region):
-        """Сканирует моды предмета с улучшенным OCR"""
+        """Сканирует моды предмета с использованием EasyOCR"""
         try:
             if self.safety and not self.safety.check_all_safety_conditions():
                 return []
@@ -101,15 +107,11 @@ class ItemScanner:
                 return self.last_scan_result
 
             # Улучшенная обработка изображения
-            processed_image = self._preprocess_image_improved(screenshot)
+            processed_image = self._preprocess_image_easyocr(screenshot)
 
-            # Распознавание текста с разными настройками
-            text = self._extract_text_improved(processed_image)
+            # Распознавание текста с EasyOCR
+            mods = self._extract_text_easyocr(processed_image)
 
-            # Улучшенный парсинг модов
-            mods = self._parse_mods_improved(text)
-
-            print(f"🔍 DEBUG: Распознанный текст: '{text}'")
             print(f"🔍 DEBUG: Извлеченные моды: {mods}")
 
             # Сохраняем в кэш
@@ -130,135 +132,160 @@ class ItemScanner:
                 self.safety.record_action(success=False, action_type="scan_error")
             return []
 
-    def _preprocess_image_improved(self, image):
-        """Улучшенная подготовка изображения для PoE текста"""
+    @classmethod
+    def _preprocess_image_easyocr(cls, image):
+        """Подготовка изображения для EasyOCR"""
         try:
-            img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+            # Конвертируем PIL Image в numpy array
+            img_array = np.array(image)
 
-            # Конвертируем в grayscale
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # Конвертируем RGB to BGR для OpenCV
+            img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
 
             # Увеличиваем контраст
+            lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
+            l, a, b = cv2.split(lab)
             clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-            contrast = clahe.apply(gray)
+            l_contrast = clahe.apply(l)
+            lab_contrast = cv2.merge([l_contrast, a, b])
+            enhanced = cv2.cvtColor(lab_contrast, cv2.COLOR_LAB2BGR)
 
-            # Бинаризация
-            _, binary = cv2.threshold(contrast, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # Увеличиваем резкость
+            kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+            sharpened = cv2.filter2D(enhanced, -1, kernel)
 
-            # Убираем шум
-            kernel = np.ones((1, 1), np.uint8)
-            cleaned = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
-
-            # Увеличиваем изображение для лучшего распознавания
-            scale_percent = 150  # 150% увеличение
-            width = int(cleaned.shape[1] * scale_percent / 100)
-            height = int(cleaned.shape[0] * scale_percent / 100)
-            resized = cv2.resize(cleaned, (width, height), interpolation=cv2.INTER_CUBIC)
+            # Увеличиваем размер для лучшего распознавания
+            scale_percent = 150
+            width = int(sharpened.shape[1] * scale_percent / 100)
+            height = int(sharpened.shape[0] * scale_percent / 100)
+            resized = cv2.resize(sharpened, (width, height), interpolation=cv2.INTER_CUBIC)
 
             return resized
 
         except Exception as e:
             print(f"❌ Ошибка обработки изображения: {e}")
-            return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+            return np.array(image)
 
-    def _extract_text_improved(self, image):
-        """Улучшенное извлечение текста"""
+    def _extract_text_easyocr(self, image):
+        """Извлечение текста с помощью EasyOCR"""
+        if self.reader is None:
+            print("❌ EasyOCR не инициализирован")
+            return []
+
         try:
-            # Пробуем разные настройки OCR
-            texts = []
+            # Распознаем текст с оптимизированными настройками для PoE
+            results = self.reader.readtext(
+                image,
+                detail=1,
+                paragraph=False,
+                min_size=20,  # Минимальный размер текста
+                text_threshold=0.6,  # Порог уверенности для текста
+                low_text=0.4,  # Порог для слабого текста
+                link_threshold=0.4,  # Порог для связывания символов
+                canvas_size=1600  # Размер канауса для обработки
+            )
 
-            # Настройка 1: Стандартная для PoE
-            text1 = pytesseract.image_to_string(image, config=self.ocr_config, lang='eng')
-            texts.append(text1)
+            # Собираем все распознанные тексты
+            all_texts = []
+            for (bbox, text, confidence) in results:
+                if confidence > 0.3:  # Низкий порог для PoE текста
+                    clean_text = self._clean_poe_text(text)
+                    if clean_text and len(clean_text) >= 3:
+                        all_texts.append({
+                            'text': clean_text,
+                            'confidence': confidence,
+                            'bbox': bbox
+                        })
+                        print(f"📖 EasyOCR: '{clean_text}' (уверенность: {confidence:.2f})")
 
-            # Настройка 2: Single column
-            text2 = pytesseract.image_to_string(image, config='--oem 3 --psm 4', lang='eng')
-            texts.append(text2)
-
-            # Настройка 3: Single word
-            text3 = pytesseract.image_to_string(image, config='--oem 3 --psm 8', lang='eng')
-            texts.append(text3)
-
-            # Выбираем самый длинный текст (обычно самый точный)
-            best_text = max(texts, key=lambda x: len(x.strip()))
-
-            return best_text.strip()
-
-        except Exception as e:
-            show_message(f"❌ Ошибка OCR: {e}")
-            return ""
-
-    def _parse_mods_improved(self, text):
-        """Улучшенный парсинг модов для PoE"""
-        mods = []
-
-        if not text:
-            print("❌ Текст для парсинга пустой")
+            # Парсим моды из распознанного текста
+            mods = self._parse_mods_easyocr(all_texts)
             return mods
 
-        print(f"📝 Исходный текст для парсинга: '{text}'")
+        except Exception as e:
+            print(f"❌ Ошибка EasyOCR: {e}")
+            return []
 
-        lines = text.split('\n')
+    def _parse_mods_easyocr(self, text_results):
+        """Парсит моды из результатов EasyOCR"""
+        mods = []
 
-        for line in lines:
-            line_clean = line.strip()
+        if not text_results:
+            return mods
 
-            # Более либеральные условия для PoE модов
-            if len(line_clean) >= 3:  # Уменьшаем минимальную длину
+        # Сортируем по Y координате (сверху вниз)
+        sorted_texts = sorted(text_results, key=lambda x: x['bbox'][0][1])
 
-                # Проверяем наличие ключевых слов PoE
-                has_poe_keyword = any(keyword in line_clean.lower() for keyword in self.poe_mods_keywords)
+        found_requires = False
 
-                # Проверяем наличие цифр (процентов, значений)
-                has_numbers = any(char.isdigit() for char in line_clean)
+        for item in sorted_texts:
+            text = item['text']
+            confidence = item['confidence']
 
-                # Проверяем наличие букв
-                has_letters = any(char.isalpha() for char in line_clean)
+            # Ищем строку "REQUIRES LEVEL"
+            if 'requires level' in text.lower():
+                found_requires = True
+                print("✅ Найдена строка REQUIRES LEVEL - начинаем сбор модов")
+                continue
 
-                # Условия для включения в моды:
-                # 1. Есть ключевое слово PoE И (цифры ИЛИ длина > 6)
-                # 2. Есть цифры И буквы И длина > 5
-                condition1 = has_poe_keyword and (has_numbers or len(line_clean) > 6)
-                condition2 = has_numbers and has_letters and len(line_clean) > 5
+            # Если нашли REQUIRES LEVEL, собираем последующие строки как моды
+            if found_requires:
+                # Проверяем что это похоже на мод
+                if self._is_valid_poe_mod(text):
+                    mods.append(text)
+                    print(f"✅ Добавлен мод: '{text}' (уверенность: {confidence:.2f})")
 
-                if condition1 or condition2:
-                    clean_mod = ' '.join(line_clean.split())
+        # Если не нашли REQUIRES LEVEL, используем fallback
+        if not mods:
+            print("⚠️ REQUIRES LEVEL не найден, используем fallback парсинг")
+            mods = self._parse_mods_fallback_easyocr(text_results)
 
-                    # Фильтруем очевидный мусор
-                    if not self._is_garbage_text(clean_mod):
-                        mods.append(clean_mod)
-                        print(f"✅ Добавлен мод: '{clean_mod}'")
-
-        print(f"📄 Всего распознано модов: {len(mods)}")
         return mods
 
-    def _is_garbage_text(self, text):
-        """Фильтрует мусорный текст"""
-        if len(text) < 3:
-            return True
+    def _parse_mods_fallback_easyocr(self, text_results):
+        """Fallback парсинг для EasyOCR"""
+        mods = []
 
+        for item in text_results:
+            text = item['text']
+            confidence = item['confidence']
+
+            if self._is_valid_poe_mod(text) and confidence > 0.4:
+                mods.append(text)
+                print(f"✅ Fallback мод: '{text}' (уверенность: {confidence:.2f})")
+
+        return mods
+
+    def _is_valid_poe_mod(self, text):
+        """Проверяет, что текст похож на PoE мод"""
+        if len(text) < 4:
+            return False
+
+        # Должен содержать буквы
+        has_letters = any(c.isalpha() for c in text)
+        # Должен содержать цифры или %
+        has_numbers_or_percent = any(c.isdigit() or c == '%' for c in text)
+
+        if not (has_letters and has_numbers_or_percent):
+            return False
+
+        # Проверяем наличие ключевых слов PoE
         text_lower = text.lower()
+        has_poe_keyword = any(keyword in text_lower for keyword in self.poe_mods_keywords)
 
-        # Очевидный мусор
-        garbage_patterns = [
-            r'^[^a-zA-Z0-9]*$',  # Только спецсимволы
-            r'^[a-zA-Z]{1,2}$',  # Одна-две буквы
-            r'^\d+$',  # Только цифры
-        ]
+        return has_poe_keyword
 
-        for pattern in garbage_patterns:
-            if re.match(pattern, text_lower):
-                return True
-
-        # Дополнительные фильтры для PoE
-        garbage_words = ['zzz', 'aaa', 'xxx', '...', '---', '___', '///', '\\\\']
-        if any(word in text_lower for word in garbage_words):
-            return True
-
-        return False
+    @classmethod
+    def _clean_poe_text(cls, text):
+        """Очищает текст PoE"""
+        # Убираем лишние символы, но сохраняем % и цифры
+        cleaned = re.sub(r'[^\w\s%+\-]', '', text)
+        # Заменяем множественные пробелы на один
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        return cleaned.strip()
 
     def has_desired_mod(self, mods, target_mods):
-        """Улучшенная проверка целевых модов"""
+        """Проверка целевых модов"""
         if not mods or not target_mods:
             print("❌ Нет модов или целевых модов для проверки")
             return False
@@ -296,7 +323,8 @@ class ItemScanner:
         print("❌ Совпадений не найдено")
         return False
 
-    def _fuzzy_ocr_match(self, ocr_text, target_pattern):
+    @classmethod
+    def _fuzzy_ocr_match(cls, ocr_text, target_pattern):
         """Нечеткое совпадение для обработки ошибок OCR"""
         if not ocr_text or not target_pattern:
             return False
@@ -395,7 +423,8 @@ class ItemScanner:
             print(f"❌ Ошибка захвата mss: {e}")
             return None
 
-    def _capture_region_fallback(self, region):
+    @classmethod
+    def _capture_region_fallback(cls, region):
         """Альтернативный метод захвата"""
         try:
             if isinstance(region, (list, tuple)) and len(region) == 4:
@@ -438,7 +467,8 @@ class ItemScanner:
         """Возвращает статистику сканера"""
         return {
             'total_scans': self.scan_count,
-            'status': 'active'
+            'status': 'active',
+            'easyocr_ready': self.reader is not None
         }
 
     def update_config(self, new_config):
