@@ -190,10 +190,6 @@ class MainWindow:
         """Запускает массовый крафт"""
         if not self.bot_running:
 
-            # СОХРАНЯЕМ целевые моды в конфиг при запуске
-            # if target_mods:
-                # self.save_to_config('target_mods', target_mods)
-
             # Проверяем и сбрасываем флаги безопасности перед запуском
             if self.bot and hasattr(self.bot, 'safety'):
                 if self.bot.safety.emergency_stop_requested:
@@ -398,7 +394,7 @@ class MainWindow:
 
             self.log_message("🎮 Бот запущен - начинаем крафт!")
 
-    def _validate_config(self):
+    def  _validate_config(self):
         """Проверяет валидность конфига"""
         if not self.current_config:
             self.log_message("❌ Конфиг не загружен!")

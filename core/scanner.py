@@ -73,9 +73,9 @@ class ItemScanner:
         item_height = self.config.get('stash_item_height', 70)
 
         # Увеличиваем область сканирования для лучшего захвата
-        mods_offset_x = -125  # широта
-        mods_offset_y = -170  # долгота
-        mods_width = 800  # Шире для захвата полных модов
+        mods_offset_x = -700  # широта
+        mods_offset_y = -170  # высота
+        mods_width = 1200  # Шире для захвата полных модов
         mods_height = 200  # Выше для захвата нескольких строк
 
         mods_x = item_x + item_width + mods_offset_x

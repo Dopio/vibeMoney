@@ -33,10 +33,22 @@ class CraftController:
         """Устанавливает регион сканирования"""
         self.scan_region = scan_region
 
-    def set_item_slots(self, item_slots):
+    def set_item_slots(self, item_slots, grid_corners=None):
         """Устанавливает слоты предметов для массового крафта"""
-        self.item_slots = item_slots
-        show_message(f"📦 Загружено {len(item_slots)} слотов предметов")
+        if grid_corners:
+            # Если переданы углы сетки, вычисляем координаты
+            top_left, bottom_right = grid_corners
+            self.item_slots = self.calculate_grid_positions(top_left, bottom_right)
+            show_message(f"📦 Вычислено {len(self.item_slots)} слотов по сетке")
+        else:
+            # Иначе используем переданные слоты
+            self.item_slots = item_slots
+            show_message(f"📦 Загружено {len(item_slots)} слотов предметов")
+
+        # Отладочная информация
+        print("🎯 ФИНАЛЬНЫЕ КООРДИНАТЫ ПРЕДМЕТОВ:")
+        for i, pos in enumerate(self.item_slots):
+            print(f"  {i + 1:2d}. ({pos[0]:4d}, {pos[1]:4d})")
 
     def set_stash_tab_position(self, position):
         """Устанавливает позицию вкладки stash"""
@@ -143,6 +155,46 @@ class CraftController:
             self.is_mass_crafting = False
             show_message(f"❌ Ошибка в массовом крафте: {e}")
 
+    @classmethod
+    def calculate_grid_positions(cls, top_left_pos, bottom_right_pos):
+        """
+        Вычисляет координаты всех предметов в сетке 6x3
+        на основе РЕАЛЬНЫХ данных калибровки
+        """
+        try:
+            top_left_x, top_left_y = top_left_pos
+            bottom_right_x, bottom_right_y = bottom_right_pos
+
+            # Вычисляем РЕАЛЬНЫЕ размеры сетки
+            grid_width = bottom_right_x - top_left_x
+            grid_height = bottom_right_y - top_left_y
+
+            # 🔧 РЕАЛЬНЫЕ размеры предмета (из ваших координат)
+            item_width = 100  # 2084 - 1984 = 100px
+            item_height = 198  # 445 - 247 = 198px
+
+            print(f"🔧 Размер сетки: {grid_width}x{grid_height}")
+            print(f"🔧 Реальный размер предмета: {item_width}x{item_height}")
+
+            item_positions = []
+
+            # Генерируем координаты для сетки 6x3
+            for row in range(3):  # 3 ряда
+                for col in range(6):  # 6 столбцов
+                    # 🔧 ВЫЧИСЛЯЕМ РЕАЛЬНЫЕ КООРДИНАТЫ
+                    center_x = top_left_x + (col * item_width) + (item_width // 2)
+                    center_y = top_left_y + (row * item_height) + (item_height // 2)
+
+                    item_positions.append((center_x, center_y))
+                    print(
+                        f"🔧 Предмет {len(item_positions)}: ({center_x}, {center_y}) - ряд {row + 1}, колонка {col + 1}")
+
+            return item_positions
+
+        except Exception as e:
+            show_message(f"❌ Ошибка вычисления сетки: {e}")
+            return []
+
     def _craft_first_item(self, currency_pos, item_pos, target_mods, max_attempts):
         """Крафт ПЕРВОГО предмета с взятием валюты и переходом на вкладку"""
         try:
@@ -169,7 +221,7 @@ class CraftController:
             pyautogui.mouseDown(button='left')
             time.sleep(random.uniform(0.1, 0.2))
             pyautogui.mouseUp(button='left')
-            time.sleep(0.5)
+            time.sleep(0.3)
 
             # 4. Наводимся на первый предмет
             self._log_important("🎯 Наводимся на первый предмет")
@@ -188,19 +240,30 @@ class CraftController:
             return False
 
     def _craft_next_item_only(self, item_pos, target_mods, max_attempts):
-        """Крафт СЛЕДУЮЩИХ предметов БЕЗ повторного взятия валюты"""
         try:
-            # ✅ ПРОСТО ПЕРЕМЕЩАЕМСЯ К СЛЕДУЮЩЕМУ ПРЕДМЕТУ (SHIFT УЖЕ ЗАЖАТ)
             self._log_important(f"🎯 Переходим к предмету {self.current_item_index + 1}")
-            self._move_to_position_silent(item_pos)
+
+            current_x, current_y = pyautogui.position()
+            target_x, target_y = item_pos
+
+            print(f"🔧 Текущая позиция: ({current_x}, {current_y})")
+            print(f"🔧 Целевая позиция: ({target_x}, {target_y})")
+            print(f"🔧 Разница по X: {target_x - current_x} пикселей")
+
+            # 🔧 УВЕЛИЧИВАЕМ СМЕЩЕНИЕ МЕЖДУ ПРЕДМЕТАМИ
+            # Для гарантированного перехода к следующему предмету
+            new_x = target_x
+            new_y = target_y
+
+            move_duration = random.uniform(0.3, 0.5)
+            pyautogui.moveTo(new_x, new_y, duration=move_duration)
 
             if not self._check_safety_continuous():
                 return False
-            time.sleep(0.3)
 
-            # ✅ ЦИКЛ КРАФТА (ВАЛЮТА УЖЕ В КУРСОРЕ, SHIFT ЗАЖАТ)
+            time.sleep(0.8)
+
             success = self._craft_item_cycle(target_mods, max_attempts, item_pos)
-
             return success
 
         except Exception as e:
@@ -229,10 +292,10 @@ class CraftController:
                 self.safety.last_action_time = time.time()
 
             # Пауза для обновления игры
-            time.sleep(0.5)
+            time.sleep(0.2)
 
             # Проверяем моды
-            if attempt % 3 == 0 or attempt == max_attempts:
+            if attempt or attempt == max_attempts:
                 self._log_important(f"🔍 Проверка модов (попытка {attempt})")
 
             if self._check_for_desired_mod(target_mods, mods_region):
@@ -277,16 +340,33 @@ class CraftController:
 
     @classmethod
     def _move_to_position_silent(cls, position):
-        """Наводим мышь без сообщений с плавным движением"""
+        """Перемещение с маленьким рандомом"""
         x, y = position
 
-        # Добавляем небольшую рандомизацию
-        variance = random.randint(2, 5)
-        offset_x = random.randint(-variance, variance)
-        offset_y = random.randint(-variance, variance)
+        # Текущая позиция мыши
+        current_x, current_y = pyautogui.position()
 
+        # Если мышь уже близко к цели - не двигаем
+        distance = ((current_x - x) ** 2 + (current_y - y) ** 2) ** 0.5
+        if distance < 10:
+            print(f"🔧 Мышь уже близко к цели ({distance:.1f} px), пропускаем перемещение")
+            return
+
+        # 🔧 МАЛЕНЬКИЙ РАНДОМ: 2-6 пикселей
+        variance_x = random.randint(2, 6)
+        variance_y = random.randint(2, 4)
+
+        offset_x = random.randint(-variance_x, variance_x)
+        offset_y = random.randint(-variance_y, variance_y)
+
+        # Короткое перемещение
         move_duration = random.uniform(0.2, 0.4)
+
+        # Прямое перемещение
         pyautogui.moveTo(x + offset_x, y + offset_y, duration=move_duration)
+
+        print(f"🔧 Перемещение: ({current_x}, {current_y}) -> ({x + offset_x}, {y + offset_y})")
+        print(f"🔧 Маленький разброс: X={variance_x}, Y={variance_y}")
 
     @classmethod
     def _log_important(cls, message):
@@ -351,7 +431,7 @@ class CraftController:
             if not self._check_safety_continuous():
                 self._release_shift()
                 return False
-            time.sleep(0.5)
+            time.sleep(0.3)
 
             # 2. ПРАВАЯ кнопка мыши по валюте
             pyautogui.mouseDown(button='right')

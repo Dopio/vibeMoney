@@ -179,6 +179,11 @@ class StashCalibrationWindow:
 
         positions_info += f"\n🎯 Прогресс: {self.positions_captured}/4"
 
+        # Показываем следующий шаг
+        if self.positions_captured < 4:
+            next_step = self.get_next_step()
+            positions_info += f"\n➡️ Следующий шаг: {next_step}"
+
         self.positions_text.insert("1.0", positions_info)
         self.positions_text.config(state="disabled")
 
@@ -199,16 +204,17 @@ class StashCalibrationWindow:
                 del self.calibration_data['item_area_start']
                 del self.calibration_data['item_area_end']
 
-            # Вычисляем все позиции предметов в сетке 6x3
-            if 'first_item_position' in self.calibration_data:
+            # ВЫЧИСЛЯЕМ СЕТКУ С ПРАВИЛЬНЫМИ ШАГАМИ
+            if 'first_item_position' in self.calibration_data and 'item_area_region' in self.calibration_data:
                 first_x, first_y = self.calibration_data['first_item_position']
-                item_slots = []
+                area_x, area_y, area_width, area_height = self.calibration_data['item_area_region']
 
-                for row in range(3):  # 3 ряда
-                    for col in range(6):  # 6 предметов в ряду
-                        slot_x = first_x + (col * 60)  # расстояние между предметами
-                        slot_y = first_y + (row * 60)
-                        item_slots.append((slot_x, slot_y))
+                # Используем метод с правильными шагами 100x198
+                item_slots = self.calculate_item_grid_precise(
+                    first_x, first_y,
+                    area_x, area_y, area_width, area_height,
+                    grid_columns=6, grid_rows=3
+                )
 
                 self.calibration_data['item_slots'] = item_slots
 
@@ -219,6 +225,26 @@ class StashCalibrationWindow:
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка при завершении калибровки: {e}")
+
+    def calculate_item_grid_precise(self, first_x, first_y, area_x, area_y, area_width, area_height, grid_columns=6,
+                                    grid_rows=3):
+        """
+        Точное вычисление сетки на основе реальных расстояний между предметами
+        """
+        item_slots = []
+
+        # РЕАЛЬНЫЕ РАССТОЯНИЯ ИЗ ВАШИХ КООРДИНАТ
+        step_x = 100  # Расстояние между предметами по X
+        step_y = 198  # Расстояние между предметами по Y
+
+        # Создаем сетку 6x3 начиная с откалиброванной первой позиции
+        for row in range(grid_rows):
+            for col in range(grid_columns):
+                slot_x = first_x + (col * step_x)
+                slot_y = first_y + (row * step_y)
+                item_slots.append([int(slot_x), int(slot_y)])
+
+        return item_slots
 
     def save_calibration(self):
         """Сохраняет калибровку в конфиг и закрывает окно"""
