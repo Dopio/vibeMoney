@@ -1,0 +1,16 @@
+{
+    "max_attempts": 100,
+    "min_delay": 0.3,
+    "max_delay": 0.5,
+    "target_mods": [
+        "crit"
+    ],
+    "safety": {
+        "emergency_stop": true,
+        "mouse_safety": true
+    },
+    "scanning": {
+        "confidence": 0.8,
+        "preprocess": true
+    }
+}

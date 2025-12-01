@@ -1,40 +1,65 @@
-*__pycache__/
+# Python
+__pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+pycache/
 *.egg-info/
 .installed.cfg
 *.egg
-pycache/
+
+# PyInstaller / сборка
+build/
+dist/
+*.spec
 
 # Virtual Environment
 .venv/
 venv/
 ENV/
+env/
+venv.bak/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.DS_Store
+*.code-workspace
 
-# Project specific
-config.json
-safety_log.json
-debug_screenshot.png
-
-# Logs
+# Логи
 *.log
+logs/
+
+# Конфигурационные файлы с чувствительными данными
+config.json           # ← СЕКРЕТНЫЕ ДАННЫЕ
+safety_log.json       # ← может содержать чувствительную инфо
+calibration_log.json  # ← может содержать координаты экрана
+debug_screenshot.png  # ← временные файлы
+
+# Бинарные файлы
+*.exe
+*.bin
+*.dll
+*.pyd
+
+# Временные файлы
+temp/
+tmp/
+*.tmp
+*.temp
+
+# Документы проекта (опционально)
+docs/_build/
+
+# Тестовые данные
+test_output/
+test_data/
+
+# Координаты и калибровка (секретно)
+item_slots.json
+stash_calibration.json
+user_settings.json

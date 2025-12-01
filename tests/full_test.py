@@ -37,7 +37,7 @@ def main():
     print("1. Установи Tesseract OCR")
     print("2. Запусти: python tests/test_safety.py")
     print("3. Запусти: python test_controller_scanner.py")
-    print("4. Запусти GUI: python run_gui.py")
+    print("4. Запусти GUI: python main.py")
 
 
 if __name__ == "__main__":

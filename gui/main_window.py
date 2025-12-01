@@ -41,6 +41,7 @@ class MainWindow:
         self.load_config()
         self.update_gui_from_config()
 
+
     def create_widgets(self):
         """Создает все элементы интерфейса с использованием компонентов"""
         # Вкладки
